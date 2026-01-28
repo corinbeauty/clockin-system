@@ -2,22 +2,26 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f7f9fc">
     <title>原點雲打卡系統</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         :root { 
-            --primary-color: #00bfa5; /* 質感翠綠 */
+            --primary-color: #00bfa5; 
             --primary-light: #e0f2f1;
-            --secondary-color: #ff8f00; /* 暖橘色用於簽退 */
+            --secondary-color: #ff8f00; 
             --secondary-light: #fff8e1;
-            --bg-color: #f7f9fc; /* 淺灰背景 */
+            --bg-color: #f7f9fc; 
             --card-bg: #ffffff; 
             --text-main: #2c3e50;
             --text-dim: #7f8c8d;
             --error-color: #e74c3c;
-            --shadow: 0 10px 30px rgba(0,0,0,0.08);
+            --shadow: 0 12px 30px rgba(0,0,0,0.06);
         }
+        
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
             display: flex; 
@@ -28,17 +32,20 @@
             background: var(--bg-color); 
             color: var(--text-main); 
         }
+
         .card { 
             background: var(--card-bg); 
             padding: 35px 25px; 
-            border-radius: 28px; 
+            border-radius: 32px; 
             box-shadow: var(--shadow); 
             text-align: center; 
-            width: 88%; 
+            width: 90%; 
             max-width: 440px; 
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
             position: relative;
+            overflow: hidden;
         }
+
         .brand { 
             font-size: 26px; 
             font-weight: 800; 
@@ -48,9 +55,10 @@
             text-transform: uppercase;
         }
         
-        /* 管理模式隱藏抬頭 */
+        /* 管理模式專屬介面優化 */
         .admin-active .brand { display: none; }
-        .admin-active .card { padding-top: 25px; }
+        .admin-active .card { padding-top: 20px; border: 1px solid var(--primary-light); }
+        .admin-active { background-color: #ffffff; }
 
         /* 載入動畫 */
         .loader { 
@@ -64,16 +72,16 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* 按鈕區域 */
         .button-group {
             display: none;
             flex-direction: column;
             gap: 18px;
             margin: 30px 0;
         }
+
         .btn {
             padding: 16px;
-            border-radius: 16px;
+            border-radius: 18px;
             border: none;
             background: var(--primary-color);
             color: white;
@@ -81,196 +89,165 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            box-shadow: 0 4px 12px rgba(0, 191, 165, 0.2);
+            box-shadow: 0 4px 15px rgba(0, 191, 165, 0.25);
             outline: none;
         }
-        .btn:active {
-            transform: scale(0.97);
-            box-shadow: 0 2px 6px rgba(0, 191, 165, 0.2);
-        }
+
+        .btn:active { transform: scale(0.96); box-shadow: 0 2px 8px rgba(0, 191, 165, 0.2); }
+
         .btn-out {
             background: #ffffff;
             color: var(--text-dim);
             border: 1.5px solid #dcdde1;
             box-shadow: none;
         }
-        .btn-out:active {
-            background: #f5f6fa;
-            transform: scale(0.97);
-        }
+
         .btn-history {
             border: none;
             color: var(--primary-color);
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
             text-decoration: none;
             background: none;
             margin-top: 15px;
             cursor: pointer;
             display: inline-block;
-            opacity: 0.8;
+            transition: 0.2s;
         }
-        .btn-history:hover { opacity: 1; }
 
-        /* 紀錄頁面樣式 */
-        #history-page, #admin-page {
-            display: none;
-            text-align: left;
-        }
-        .history-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+        /* 紀錄區域 */
         .history-list {
-            max-height: 400px;
+            max-height: 420px;
             overflow-y: auto;
-            padding-right: 8px;
+            padding-right: 4px;
+            margin-top: 10px;
         }
         .history-list::-webkit-scrollbar { width: 4px; }
-        .history-list::-webkit-scrollbar-track { background: #f1f1f1; }
-        .history-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+        .history-list::-webkit-scrollbar-thumb { background: #eee; border-radius: 10px; }
 
         .history-item {
             background: #ffffff;
-            padding: 15px;
-            border-radius: 16px;
+            padding: 16px;
+            border-radius: 20px;
             margin-bottom: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border: 1px solid #edf2f7;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-            position: relative;
+            border: 1px solid #f1f4f8;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.01);
         }
         
-        .history-item.in {
-            border-left: 5px solid var(--primary-color);
-            background: var(--primary-light);
-        }
-        .history-item.out {
-            border-left: 5px solid var(--secondary-color);
-            background: var(--secondary-light);
-        }
+        .history-item.in { border-left: 6px solid var(--primary-color); background: var(--primary-light); }
+        .history-item.out { border-left: 6px solid var(--secondary-color); background: var(--secondary-light); }
 
         .daily-summary {
-            background: #fff;
-            border: 1px dashed var(--primary-color);
-            padding: 10px 15px;
-            border-radius: 12px;
-            margin-top: -5px;
-            margin-bottom: 15px;
+            background: #ffffff;
+            border: 1.5px dashed var(--primary-color);
+            padding: 12px 18px;
+            border-radius: 16px;
+            margin: 5px 0 20px 0;
             font-size: 13px;
             color: var(--primary-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-weight: bold;
+            font-weight: 800;
         }
 
-        .item-info { display: flex; flex-direction: column; }
-        .item-type { font-size: 14px; font-weight: 700; color: #2d3436; }
-        .item-date { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-        .item-time { font-size: 15px; font-weight: 800; color: #2d3436; }
-        .item-user { font-size: 11px; color: var(--primary-color); margin-bottom: 2px; font-weight: bold; }
+        .item-info { display: flex; flex-direction: column; text-align: left; }
+        .item-type { font-size: 14px; font-weight: 800; color: #2d3436; }
+        .item-date { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+        .item-time { font-size: 18px; font-weight: 900; color: #2d3436; }
+        .item-user { font-size: 12px; color: var(--primary-color); margin-bottom: 4px; font-weight: bold; }
 
         .btn-delete {
             font-size: 10px;
             color: var(--error-color);
-            background: rgba(231, 76, 60, 0.1);
+            background: #fff;
             border: 1px solid var(--error-color);
-            padding: 2px 6px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 5px;
-            align-self: flex-start;
-            transition: 0.2s;
-        }
-        .btn-delete:hover {
-            background: var(--error-color);
-            color: white;
+            padding: 3px 8px;
+            border-radius: 6px;
+            margin-top: 8px;
+            font-weight: bold;
         }
 
+        /* 管理員介面美化 */
+        .admin-header-ui {
+            background: linear-gradient(135deg, var(--primary-color), #00d2ff);
+            margin: -20px -25px 20px -25px;
+            padding: 25px;
+            color: white;
+            text-align: left;
+        }
+        .admin-header-ui h2 { margin: 0; font-size: 20px; letter-spacing: 1px; }
+        .admin-header-ui p { margin: 5px 0 0 0; font-size: 11px; opacity: 0.8; }
+
         .controls-box {
-            background: #f1f2f6;
-            padding: 18px;
-            border-radius: 20px;
-            margin-bottom: 20px;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 24px;
+            margin-bottom: 25px;
+            border: 1px solid #edf2f7;
         }
         .admin-select {
             width: 100%;
-            padding: 12px;
-            border-radius: 12px;
-            border: 1px solid #ddd;
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
             margin-top: 8px;
-            font-size: 14px;
+            font-size: 15px;
             background: white;
             color: var(--text-main);
             font-weight: 600;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23718096' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 18px;
         }
+
         .stats-box {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 15px;
+            gap: 12px;
+            margin-top: 20px;
         }
         .stat-card {
             background: white;
-            padding: 10px;
-            border-radius: 12px;
+            padding: 15px 10px;
+            border-radius: 16px;
             text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            border: 1px solid #f1f5f9;
         }
-        .stat-card span { display: block; font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
-        .stat-card b { font-size: 16px; color: var(--text-main); }
+        .stat-card span { display: block; font-size: 10px; color: var(--text-dim); font-weight: bold; margin-bottom: 4px; }
+        .stat-card b { font-size: 20px; color: var(--text-main); }
+        .stat-card.in b { color: var(--primary-color); }
+        .stat-card.out b { color: var(--secondary-color); }
 
+        /* 彈窗 */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.4);
             display: none;
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            backdrop-filter: blur(4px);
         }
         .modal-content {
             background: white;
-            padding: 25px;
-            border-radius: 20px;
-            width: 80%;
-            max-width: 300px;
+            padding: 30px;
+            border-radius: 24px;
+            width: 85%;
+            max-width: 320px;
             text-align: center;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         }
-        .modal-btns {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .modal-btn {
-            flex: 1;
-            padding: 10px;
-            border-radius: 10px;
-            border: none;
-            font-weight: bold;
-            cursor: pointer;
-        }
+        .modal-btns { display: flex; gap: 12px; margin-top: 25px; }
+        .modal-btn { flex: 1; padding: 12px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; }
         .btn-confirm { background: var(--error-color); color: white; }
-        .btn-cancel { background: #eee; color: #777; }
-
-        .success-icon { 
-            color: var(--primary-color); 
-            font-size: 55px; 
-            display: none; 
-            margin: 20px 0;
-            animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-        }
-        @keyframes bounceIn {
-            0% { opacity: 0; transform: scale(0.3); }
-            50% { opacity: 1; transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
+        .btn-cancel { background: #f1f5f9; color: #64748b; }
 
         #status { 
             font-size: 14px; 
@@ -278,10 +255,9 @@
             margin-top: 15px; 
             line-height: 1.6;
             font-weight: 500;
-            white-space: pre-wrap;
         }
         .version {
-            margin-top: 25px;
+            margin-top: 30px;
             font-size: 11px;
             color: #bdc3c7;
             letter-spacing: 2px;
@@ -289,22 +265,12 @@
         }
         .admin-link {
             position: absolute;
-            bottom: 10px;
-            right: 20px;
+            bottom: 12px;
+            right: 25px;
             font-size: 10px;
-            color: #ecf0f1;
+            color: rgba(0,0,0,0.03);
             cursor: pointer;
-        }
-        .retry-btn {
-            background: var(--error-color);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            margin-top: 10px;
-            cursor: pointer;
-            font-weight: bold;
-            display: none;
+            padding: 10px;
         }
     </style>
 </head>
@@ -326,68 +292,65 @@
         <!-- 分頁：個人紀錄區 -->
         <div id="history-page">
             <div class="history-header">
-                <h3 style="margin: 0; font-size: 18px;">最近紀錄</h3>
-                <span style="font-size: 12px; color: var(--text-dim);">個人考勤專區</span>
+                <h3 style="margin: 0; font-size: 18px;">考勤紀錄</h3>
+                <span style="font-size: 12px; color: var(--text-dim);">個人專區</span>
             </div>
-
-            <div class="controls-box">
+            <div class="controls-box" style="padding: 15px;">
                 <div class="stats-box" style="margin-top: 0;">
-                    <div class="stat-card"><span>簽到總次數</span><b id="user-stat-in">0</b></div>
-                    <div class="stat-card"><span>簽退總次數</span><b id="user-stat-out">0</b></div>
+                    <div class="stat-card"><span>簽到</span><b id="user-stat-in">0</b></div>
+                    <div class="stat-card"><span>簽退</span><b id="user-stat-out">0</b></div>
                 </div>
             </div>
-
             <div id="history-list" class="history-list">
-                <p style="text-align: center; color: #bdc3c7; font-size: 14px; margin-top: 30px;">載入中...</p>
+                <p style="text-align: center; color: #bdc3c7; font-size: 14px;">資料加載中...</p>
             </div>
-            <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: bold;" onclick="showView('clock')">← 返回打卡頁面</button>
+            <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">← 返回主頁</button>
         </div>
 
         <!-- 分頁：管理員查詢區 -->
         <div id="admin-page">
-            <div class="history-header">
-                <h3 style="margin: 0; font-size: 18px;">後台管理系統</h3>
-                <span style="font-size: 12px; color: var(--primary-color); font-weight: bold;">系統管理員</span>
+            <div class="admin-header-ui">
+                <h2>管理控制台</h2>
+                <p>ORIGIN CLOCK ADMIN PANEL</p>
             </div>
             
             <div class="controls-box">
-                <label style="font-size: 12px; font-weight: bold; color: var(--text-main);">搜尋員工：</label>
+                <label style="font-size: 12px; font-weight: bold; color: var(--text-dim); padding-left: 4px;">人員篩選</label>
                 <select id="user-filter" class="admin-select" onchange="filterAdminHistory()">
                     <option value="all">顯示所有人</option>
                 </select>
                 <div class="stats-box">
-                    <div class="stat-card"><span>簽到次數</span><b id="stat-in">0</b></div>
-                    <div class="stat-card"><span>簽退次數</span><b id="stat-out">0</b></div>
+                    <div class="stat-card in"><span>簽到累計</span><b id="stat-in">0</b></div>
+                    <div class="stat-card out"><span>簽退累計</span><b id="stat-out">0</b></div>
                 </div>
             </div>
 
             <div id="admin-list" class="history-list">
-                <p style="text-align: center; color: #bdc3c7; font-size: 14px;">分析全局數據中...</p>
+                <p style="text-align: center; color: #bdc3c7; font-size: 14px;">大數據分析中...</p>
             </div>
-            <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: bold;" onclick="showView('clock')">← 退出管理模式</button>
+            <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
-        <p id="status">正在初始化系統...</p>
+        <p id="status">系統初始化...</p>
         <button id="retry-btn" class="retry-btn" onclick="location.reload()">重新連線</button>
-        <div class="version">ORIGIN CLOUD V2.4 PRO</div>
+        <div class="version">ORIGIN CLOUD V2.5 PRO</div>
         <div class="admin-link" onclick="handleAdminLogin()">ADMIN</div>
     </div>
 
-    <!-- 刪除確認彈窗 -->
     <div id="delete-modal" class="modal-overlay">
         <div class="modal-content">
-            <h3 style="margin-top:0; color:var(--error-color);">確認註銷？</h3>
-            <p style="font-size:14px; color:#666;">此操作將永久刪除該次打卡紀錄，且無法恢復。</p>
+            <h3 style="margin-top:0; color:var(--error-color); font-size: 20px;">註銷打卡？</h3>
+            <p style="font-size:14px; color:#64748b; line-height: 1.5;">該操作將從資料庫中永久移除此紀錄。</p>
             <div class="modal-btns">
                 <button class="modal-btn btn-cancel" onclick="closeDeleteModal()">取消</button>
-                <button id="modal-confirm-btn" class="modal-btn btn-confirm">確認註銷</button>
+                <button id="modal-confirm-btn" class="modal-btn btn-confirm">確認</button>
             </div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -439,22 +402,11 @@
 
         window.handleAdminLogin = function() {
             const pw = prompt("請輸入管理員驗證碼：");
-            if (pw === "1016") {
-                showView('admin');
-            } else if (pw !== null) {
-                alert("驗證失敗！");
-            }
+            if (pw === "1016") { showView('admin'); } else if (pw !== null) { alert("驗證失敗！"); }
         };
 
-        window.openDeleteModal = function(recordId) {
-            pendingDeleteId = recordId;
-            document.getElementById('delete-modal').style.display = 'flex';
-        };
-
-        window.closeDeleteModal = function() {
-            pendingDeleteId = null;
-            document.getElementById('delete-modal').style.display = 'none';
-        };
+        window.openDeleteModal = function(id) { pendingDeleteId = id; document.getElementById('delete-modal').style.display = 'flex'; };
+        window.closeDeleteModal = function() { pendingDeleteId = null; document.getElementById('delete-modal').style.display = 'none'; };
 
         document.getElementById('modal-confirm-btn').onclick = async function() {
             if (!pendingDeleteId) return;
@@ -463,79 +415,43 @@
                 await deleteDoc(doc(db, "tenants/Corin_Beauty/checkins", pendingDeleteId));
                 closeDeleteModal();
                 fetchHistory();
-            } catch (e) {
-                console.error("註銷失敗", e);
-                alert("註銷失敗：" + (e.code || e.message));
-            }
+            } catch (e) { alert("註銷失敗"); }
         };
 
         async function initSystem() {
             const statusText = document.getElementById('status');
-            const loader = document.getElementById('loader');
-            const retryBtn = document.getElementById('retry-btn');
-
             try {
-                // 階段 1: LINE LIFF 初始化
-                statusText.innerText = "正在連線至 LINE 平台...";
-                await liff.init({ liffId: "2008997688-9iB69K6M" }).catch(e => { 
-                    throw new Error("LINE 授權失效: " + e.message + "\n請確認網址是否於 LINE 內開啟。"); 
-                });
+                statusText.innerText = "正在連線 LINE...";
+                await liff.init({ liffId: "2008997688-9iB69K6M" });
+                if (!liff.isLoggedIn()) { liff.login(); return; }
+                userProfile = await liff.getProfile();
+                await signInAnonymously(auth);
                 
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                    return;
-                }
-                
-                userProfile = await liff.getProfile().catch(e => { 
-                    throw new Error("取得個人資料失敗: " + e.message); 
-                });
-                
-                // 階段 2: Firebase 匿名登入
-                statusText.innerText = "正在同步雲端資料庫...";
-                await signInAnonymously(auth).catch(e => { 
-                    throw new Error("資料庫連線失敗: " + (e.code === 'auth/operation-not-allowed' ? "請在 Firebase 開啟匿名登入功能" : e.message)); 
-                });
-                
-                // 階段 3: 定位取得
-                statusText.innerText = "正在取得地理原點...";
+                statusText.innerText = "正在獲取定位...";
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    loader.style.display = "none";
+                    document.getElementById('loader').style.display = "none";
                     document.getElementById('btn-container').style.display = "flex";
-                    statusText.innerText = "定位完成，請選擇打卡類型";
-                    statusText.style.color = "var(--text-dim)";
+                    statusText.innerText = "定位成功，可開始打卡";
                 }, (err) => {
-                    loader.style.display = "none";
-                    statusText.innerText = "定位失敗: 請確認手機 GPS 已開啟\n(錯誤代碼: " + err.code + ")";
+                    document.getElementById('loader').style.display = "none";
+                    statusText.innerText = "定位失敗: 請開啟手機 GPS";
                     statusText.style.color = "var(--error-color)";
-                    retryBtn.style.display = "inline-block";
+                    document.getElementById('retry-btn').style.display = "inline-block";
                 }, { enableHighAccuracy: true, timeout: 10000 });
-                
             } catch (err) {
-                console.error(err);
-                loader.style.display = "none";
-                statusText.innerText = "系統連線中斷\n" + err.message;
-                statusText.style.color = "var(--error-color)";
-                retryBtn.style.display = "inline-block";
+                statusText.innerText = "系統連線中斷";
             }
         }
 
         window.submitCheckIn = async function(type) {
             if (!userProfile || !userCoords) return;
-            const btnGroup = document.getElementById('btn-container');
-            const loader = document.getElementById('loader');
-            const statusText = document.getElementById('status');
-
-            btnGroup.style.display = "none";
-            document.getElementById('nav-history-btn').style.display = "none";
-            loader.style.display = "block";
-            statusText.innerText = `正在提交${type}紀錄...`;
+            document.getElementById('btn-container').style.display = "none";
+            document.getElementById('loader').style.display = "block";
+            document.getElementById('status').innerText = `正在提交${type}...`;
 
             try {
-                const now = new Date();
-                const timeString = now.toLocaleTimeString('zh-TW', { hour12: false });
                 if (!auth.currentUser) await signInAnonymously(auth);
-
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId,
                     userName: userProfile.displayName,
@@ -543,49 +459,33 @@
                     lng: userCoords.lng,
                     timestamp: serverTimestamp(),
                     type: type,
-                    client: "Origin-Cloud-V2.4"
+                    client: "Origin-Cloud-V2.5"
                 });
-                
-                loader.style.display = "none";
+                document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
-                statusText.innerText = `[${timeString}] ${type}成功！`;
-                statusText.style.color = "var(--primary-color)";
-                setTimeout(() => liff.closeWindow(), 3000);
-            } catch (e) {
-                console.error(e);
-                loader.style.display = "none";
-                btnGroup.style.display = "flex";
-                document.getElementById('nav-history-btn').style.display = "inline-block";
-                statusText.innerText = "提交失敗: " + e.message;
-                statusText.style.color = "var(--error-color)";
-            }
+                document.getElementById('status').innerText = `${type}成功！`;
+                setTimeout(() => liff.closeWindow(), 2500);
+            } catch (e) { alert("提交失敗"); }
         };
 
         async function fetchHistory() {
             const listContainer = document.getElementById('history-list');
-            if (!userProfile) return;
             try {
-                if (!auth.currentUser) await signInAnonymously(auth);
                 const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
                 let records = [];
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
                     if (data.userId === userProfile.userId) records.push({ ...data, id: doc.id });
                 });
-                const countIn = records.filter(r => r.type === '簽到').length;
-                const countOut = records.filter(r => r.type === '簽退').length;
-                document.getElementById('user-stat-in').textContent = countIn;
-                document.getElementById('user-stat-out').textContent = countOut;
+                document.getElementById('user-stat-in').textContent = records.filter(r => r.type === '簽到').length;
+                document.getElementById('user-stat-out').textContent = records.filter(r => r.type === '簽退').length;
                 renderHistoryList(records, listContainer, false);
-            } catch (e) {
-                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">讀取失敗: ' + e.message + '</p>';
-            }
+            } catch (e) { listContainer.innerHTML = '<p>讀取失敗</p>'; }
         }
 
         async function fetchAdminHistory() {
             const listContainer = document.getElementById('admin-list');
             const filterSelect = document.getElementById('user-filter');
-            listContainer.innerHTML = '<p style="text-align: center; color: #bdc3c7;">正在獲取數據...</p>';
             try {
                 const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
                 allRecords = [];
@@ -598,25 +498,19 @@
                 filterSelect.innerHTML = '<option value="all">顯示所有人</option>';
                 Array.from(users).sort().forEach(name => {
                     const opt = document.createElement('option');
-                    opt.value = name;
-                    opt.textContent = name;
+                    opt.value = name; opt.textContent = name;
                     filterSelect.appendChild(opt);
                 });
                 filterAdminHistory();
-            } catch (e) {
-                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">獲取失敗: ' + e.message + '</p>';
-            }
+            } catch (e) { listContainer.innerHTML = '<p>加載失敗</p>'; }
         }
 
         window.filterAdminHistory = function() {
             const listContainer = document.getElementById('admin-list');
             const filterValue = document.getElementById('user-filter').value;
-            let filtered = allRecords;
-            if (filterValue !== "all") filtered = allRecords.filter(r => r.userName === filterValue);
-            const countIn = filtered.filter(r => r.type === '簽到').length;
-            const countOut = filtered.filter(r => r.type === '簽退').length;
-            document.getElementById('stat-in').textContent = countIn;
-            document.getElementById('stat-out').textContent = countOut;
+            let filtered = filterValue === "all" ? allRecords : allRecords.filter(r => r.userName === filterValue);
+            document.getElementById('stat-in').textContent = filtered.filter(r => r.type === '簽到').length;
+            document.getElementById('stat-out').textContent = filtered.filter(r => r.type === '簽退').length;
             renderHistoryList(filtered, listContainer, true);
         };
 
@@ -628,74 +522,48 @@
                 const dateKey = d.toLocaleDateString('zh-TW');
                 const userKey = rec.userName || '未知用戶';
                 const key = `${dateKey}_${userKey}`;
-
                 if (!groups[key]) groups[key] = { date: dateKey, user: userKey, items: [], totalMinutes: 0 };
                 groups[key].items.push(rec);
             });
 
             Object.values(groups).forEach(group => {
-                const inRecords = group.items.filter(i => i.type === '簽到');
-                const outRecords = group.items.filter(i => i.type === '簽退');
-
-                if (inRecords.length > 0 && outRecords.length > 0) {
-                    const firstIn = inRecords.reduce((min, p) => p.timestamp.toDate() < min ? p.timestamp.toDate() : min, inRecords[0].timestamp.toDate());
-                    const lastOut = outRecords.reduce((max, p) => p.timestamp.toDate() > max ? p.timestamp.toDate() : max, outRecords[0].timestamp.toDate());
-
-                    if (lastOut > firstIn) {
-                        group.totalMinutes = (lastOut - firstIn) / (1000 * 60);
-                    }
+                const ins = group.items.filter(i => i.type === '簽到');
+                const outs = group.items.filter(i => i.type === '簽退');
+                if (ins.length && outs.length) {
+                    const firstIn = Math.min(...ins.map(i => i.timestamp.toDate()));
+                    const lastOut = Math.max(...outs.map(i => i.timestamp.toDate()));
+                    if (lastOut > firstIn) group.totalMinutes = (lastOut - firstIn) / (1000 * 60);
                 }
             });
 
-            const sortedGroups = Object.values(groups).sort((a, b) => {
-                const dateA = new Date(a.date.replace(/\//g, '-'));
-                const dateB = new Date(b.date.replace(/\//g, '-'));
-                return dateB - dateA;
-            });
+            const sortedGroups = Object.values(groups).sort((a, b) => new Date(b.date.replace(/\//g,'-')) - new Date(a.date.replace(/\//g,'-')));
 
-            if (sortedGroups.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #bdc3c7; margin-top: 30px;">尚無紀錄</p>';
-                return;
-            }
+            if (!sortedGroups.length) { container.innerHTML = '<p style="text-align:center; color:#ccc; margin-top:20px;">尚無數據</p>'; return; }
 
-            let html = "";
-            sortedGroups.forEach(group => {
+            container.innerHTML = sortedGroups.map(group => {
                 const itemsHtml = group.items.sort((a,b) => b.timestamp.seconds - a.timestamp.seconds).map(rec => {
-                    const dateObj = rec.timestamp.toDate();
-                    const timeStr = dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
-                    const isIn = rec.type === '簽到';
-                    const deleteBtnHtml = !isAdminView ? `<button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷紀錄</button>` : '';
-
+                    const timeStr = rec.timestamp.toDate().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
                     return `
-                        <div class="history-item ${isIn ? 'in' : 'out'}">
+                        <div class="history-item ${rec.type === '簽到' ? 'in' : 'out'}">
                             <div class="item-info">
                                 ${isAdminView ? `<span class="item-user">${rec.userName}</span>` : ''}
                                 <span class="item-type">${rec.type}</span>
                                 <span class="item-date">${group.date}</span>
-                                ${deleteBtnHtml}
+                                ${!isAdminView ? `<button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷</button>` : ''}
                             </div>
                             <div class="item-time">${timeStr}</div>
                         </div>
                     `;
                 }).join('');
-
-                html += itemsHtml;
-
-                if (group.totalMinutes > 0) {
-                    const hours = Math.floor(group.totalMinutes / 60);
-                    const mins = Math.round(group.totalMinutes % 60);
-                    const durationStr = hours > 0 ? `${hours} 小時 ${mins} 分鐘` : `${mins} 分鐘`;
-                    
-                    html += `
-                        <div class="daily-summary">
-                            <span>🕒 單日總工時 (首進末出)</span>
-                            <span>${durationStr}</span>
-                        </div>
-                    `;
-                }
-            });
-
-            container.innerHTML = html;
+                
+                const durationHtml = group.totalMinutes > 0 ? `
+                    <div class="daily-summary">
+                        <span>🕒 單日總工時</span>
+                        <span>${Math.floor(group.totalMinutes/60)} 小時 ${Math.round(group.totalMinutes%60)} 分</span>
+                    </div>
+                ` : '';
+                return itemsHtml + durationHtml;
+            }).join('');
         }
 
         window.onload = initSystem;
