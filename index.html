@@ -35,7 +35,7 @@
             box-shadow: var(--shadow); 
             text-align: center; 
             width: 88%; 
-            max-width: 380px; 
+            max-width: 420px; 
             transition: all 0.3s ease;
             position: relative;
         }
@@ -109,7 +109,7 @@
         .btn-history:hover { opacity: 1; }
 
         /* 紀錄頁面樣式 */
-        #history-page {
+        #history-page, #admin-page {
             display: none;
             text-align: left;
         }
@@ -143,21 +143,46 @@
         }
         .history-item:hover { transform: translateY(-2px); }
         
-        /* 簽到標記 */
         .history-item.in {
             border-left: 5px solid var(--primary-color);
             background: var(--primary-light);
         }
-        /* 簽退標記 */
         .history-item.out {
             border-left: 5px solid var(--secondary-color);
             background: var(--secondary-light);
         }
 
         .item-info { display: flex; flex-direction: column; }
-        .item-type { font-size: 15px; font-weight: 700; color: #2d3436; }
-        .item-date { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-        .item-time { font-size: 16px; font-weight: 800; color: #2d3436; }
+        .item-type { font-size: 14px; font-weight: 700; color: #2d3436; }
+        .item-date { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+        .item-time { font-size: 15px; font-weight: 800; color: #2d3436; }
+        .item-user { font-size: 11px; color: var(--primary-color); margin-bottom: 2px; font-weight: bold; }
+
+        /* 管理員專屬樣式 */
+        .admin-controls {
+            background: #f1f2f6;
+            padding: 15px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+        }
+        .admin-select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        .stats-box {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: bold;
+        }
 
         .success-icon { 
             color: var(--primary-color); 
@@ -169,7 +194,6 @@
         @keyframes bounceIn {
             0% { opacity: 0; transform: scale(0.3); }
             50% { opacity: 1; transform: scale(1.05); }
-            70% { transform: scale(0.9); }
             100% { transform: scale(1); }
         }
 
@@ -187,6 +211,14 @@
             letter-spacing: 2px;
             font-weight: bold;
         }
+        .admin-link {
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+            font-size: 10px;
+            color: #ecf0f1;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -196,18 +228,15 @@
         <!-- 首頁：打卡區 -->
         <div id="clock-page">
             <div id="loader" class="loader"></div>
-            
             <div id="btn-container" class="button-group">
                 <button class="btn" onclick="submitCheckIn('簽到')">簽到上班</button>
                 <button class="btn btn-out" onclick="submitCheckIn('簽退')">簽退下班</button>
             </div>
-
             <div id="success" class="success-icon">✔</div>
-            
             <button id="nav-history-btn" class="btn-history" onclick="showView('history')">查看我的紀錄</button>
         </div>
 
-        <!-- 分頁：紀錄區 -->
+        <!-- 分頁：個人紀錄區 -->
         <div id="history-page">
             <div class="history-header">
                 <h3 style="margin: 0; font-size: 18px;">最近紀錄</h3>
@@ -216,11 +245,36 @@
             <div id="history-list" class="history-list">
                 <p style="text-align: center; color: #bdc3c7; font-size: 14px; margin-top: 30px;">載入中...</p>
             </div>
-            <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; text-decoration: none; font-weight: bold;" onclick="showView('clock')">← 返回打卡頁面</button>
+            <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: bold;" onclick="showView('clock')">← 返回打卡頁面</button>
+        </div>
+
+        <!-- 分頁：管理員查詢區 -->
+        <div id="admin-page">
+            <div class="history-header">
+                <h3 style="margin: 0; font-size: 18px;">後台管理面板</h3>
+                <span style="font-size: 12px; color: var(--primary-color);">管理員模式</span>
+            </div>
+            
+            <div class="admin-controls">
+                <label style="font-size: 12px; font-weight: bold;">篩選人員：</label>
+                <select id="user-filter" class="admin-select" onchange="filterAdminHistory()">
+                    <option value="all">顯示所有人</option>
+                </select>
+                <div id="admin-stats" class="stats-box">
+                    <span>簽到次數: <b id="stat-in">0</b></span>
+                    <span>簽退次數: <b id="stat-out">0</b></span>
+                </div>
+            </div>
+
+            <div id="admin-list" class="history-list">
+                <p style="text-align: center; color: #bdc3c7; font-size: 14px;">載入全局數據中...</p>
+            </div>
+            <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: bold;" onclick="showView('clock')">← 登出管理員</button>
         </div>
         
         <p id="status">正在取得地理原點...</p>
         <div class="version">ORIGIN CLOUD V2.4</div>
+        <div class="admin-link" onclick="handleAdminLogin()">ADMIN</div>
     </div>
 
     <script type="module">
@@ -242,22 +296,39 @@
 
         let userProfile = null;
         let userCoords = null;
+        let allRecords = []; // 用於管理員查詢
 
         window.showView = function(view) {
             const clockPage = document.getElementById('clock-page');
             const historyPage = document.getElementById('history-page');
+            const adminPage = document.getElementById('admin-page');
             const status = document.getElementById('status');
 
+            clockPage.style.display = 'none';
+            historyPage.style.display = 'none';
+            adminPage.style.display = 'none';
+
             if (view === 'history') {
-                clockPage.style.display = 'none';
                 historyPage.style.display = 'block';
                 status.style.display = 'none';
                 fetchHistory();
+            } else if (view === 'admin') {
+                adminPage.style.display = 'block';
+                status.style.display = 'none';
+                fetchAdminHistory();
             } else {
                 clockPage.style.display = 'block';
-                historyPage.style.display = 'none';
                 status.style.display = 'block';
                 status.innerText = userCoords ? "定位完成，請選擇打卡類型" : "正在取得地理原點...";
+            }
+        };
+
+        window.handleAdminLogin = function() {
+            const pw = prompt("請輸入管理員密碼：");
+            if (pw === "1016") {
+                showView('admin');
+            } else if (pw !== null) {
+                alert("密碼錯誤！");
             }
         };
 
@@ -317,6 +388,7 @@
             }
         };
 
+        // 個人紀錄讀取
         async function fetchHistory() {
             const listContainer = document.getElementById('history-list');
             if (!userProfile) return;
@@ -328,32 +400,89 @@
                     const data = doc.data();
                     if (data.userId === userProfile.userId) records.push(data);
                 });
-                records.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-
-                if (records.length === 0) {
-                    listContainer.innerHTML = '<p style="text-align: center; color: #bdc3c7; margin-top: 30px;">尚無紀錄</p>';
-                    return;
-                }
-
-                listContainer.innerHTML = records.map(rec => {
-                    const dateObj = rec.timestamp ? rec.timestamp.toDate() : new Date();
-                    const dateStr = dateObj.toLocaleDateString('zh-TW');
-                    const timeStr = dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
-                    const isIn = rec.type === '簽到';
-                    
-                    return `
-                        <div class="history-item ${isIn ? 'in' : 'out'}">
-                            <div class="item-info">
-                                <span class="item-type">${rec.type}</span>
-                                <span class="item-date">${dateStr}</span>
-                            </div>
-                            <div class="item-time">${timeStr}</div>
-                        </div>
-                    `;
-                }).join('');
+                renderHistory(records, listContainer, false);
             } catch (e) {
                 listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">讀取失敗</p>';
             }
+        }
+
+        // 管理員：獲取所有人紀錄
+        async function fetchAdminHistory() {
+            const listContainer = document.getElementById('admin-list');
+            const filterSelect = document.getElementById('user-filter');
+            listContainer.innerHTML = '<p style="text-align: center; color: #bdc3c7;">讀取全局數據中...</p>';
+
+            try {
+                const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
+                allRecords = [];
+                let users = new Set();
+                
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    allRecords.push(data);
+                    if (data.userName) users.add(data.userName);
+                });
+
+                // 更新人員篩選下拉選單
+                filterSelect.innerHTML = '<option value="all">顯示所有人</option>';
+                Array.from(users).sort().forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    filterSelect.appendChild(opt);
+                });
+
+                filterAdminHistory();
+            } catch (e) {
+                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">管理者讀取失敗</p>';
+            }
+        }
+
+        // 管理員：過濾與渲染
+        window.filterAdminHistory = function() {
+            const listContainer = document.getElementById('admin-list');
+            const filterValue = document.getElementById('user-filter').value;
+            
+            let filtered = allRecords;
+            if (filterValue !== "all") {
+                filtered = allRecords.filter(r => r.userName === filterValue);
+            }
+
+            // 計算統計
+            const countIn = filtered.filter(r => r.type === '簽到').length;
+            const countOut = filtered.filter(r => r.type === '簽退').length;
+            document.getElementById('stat-in').textContent = countIn;
+            document.getElementById('stat-out').textContent = countOut;
+
+            renderHistory(filtered, listContainer, true);
+        };
+
+        // 通用渲染函數
+        function renderHistory(records, container, showName) {
+            records.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+
+            if (records.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #bdc3c7; margin-top: 30px;">尚無紀錄</p>';
+                return;
+            }
+
+            container.innerHTML = records.map(rec => {
+                const dateObj = rec.timestamp ? rec.timestamp.toDate() : new Date();
+                const dateStr = dateObj.toLocaleDateString('zh-TW');
+                const timeStr = dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+                const isIn = rec.type === '簽到';
+                
+                return `
+                    <div class="history-item ${isIn ? 'in' : 'out'}">
+                        <div class="item-info">
+                            ${showName ? `<span class="item-user">${rec.userName || '未知用戶'}</span>` : ''}
+                            <span class="item-type">${rec.type}</span>
+                            <span class="item-date">${dateStr}</span>
+                        </div>
+                        <div class="item-time">${timeStr}</div>
+                    </div>
+                `;
+            }).join('');
         }
 
         window.onload = initSystem;
