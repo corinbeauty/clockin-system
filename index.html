@@ -137,6 +137,7 @@
         .history-list::-webkit-scrollbar { width: 4px; }
         .history-list::-webkit-scrollbar-thumb { background: #eee; border-radius: 10px; }
 
+        /* 紀錄卡片佈局修正：確保為直向 */
         .history-item {
             background: #ffffff;
             padding: 15px;
@@ -286,7 +287,6 @@
         .version { margin-top: 20px; font-size: 10px; color: #bdc3c7; letter-spacing: 1px; font-weight: bold; }
         .admin-link { position: absolute; bottom: 10px; right: 20px; font-size: 10px; color: rgba(0,0,0,0.03); cursor: pointer; padding: 10px; }
         
-        /* 管理端專用預覽地圖樣式 */
         .admin-map-preview {
             width: 100%;
             height: 180px;
@@ -346,7 +346,6 @@
                 </div>
             </div>
             
-            <!-- 明細 Tab -->
             <div id="admin-tab-records-content">
                 <div class="controls-box">
                     <select id="user-filter" class="admin-input" onchange="filterAdminHistory()" style="margin-top:0;">
@@ -358,7 +357,6 @@
                 </div>
             </div>
 
-            <!-- 地點設定 Tab -->
             <div id="admin-tab-settings-content" style="display:none;">
                 <div class="controls-box" style="text-align: left; padding: 15px;">
                     <label style="font-size: 11px; font-weight: bold; color: var(--primary-color);">1. 設定據點名稱</label>
@@ -377,7 +375,6 @@
                     </div>
                     <input type="number" id="set-radius" class="admin-input" placeholder="容許半徑 (公尺, 建議 200)">
                     
-                    <!-- 管理端預覽地圖 -->
                     <div id="admin-map-preview" class="admin-map-preview">
                         <iframe id="admin-map-iframe" src=""></iframe>
                     </div>
@@ -388,15 +385,13 @@
                     </div>
                 </div>
 
-                <div class="location-manager-list" id="location-list-ui">
-                    <!-- 地點清單將渲染在此 -->
-                </div>
+                <div class="location-manager-list" id="location-list-ui"></div>
             </div>
 
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
-        <div class="version">ORIGIN CLOUD V3.6 PRO</div>
+        <div class="version">ORIGIN CLOUD V3.7 PRO</div>
         <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
     </div>
 
@@ -473,32 +468,26 @@
             mainCard.classList.remove('admin-active');
 
             if (view === 'history') {
-                historyPage.style.display = 'block';
-                fetchHistory();
+                historyPage.style.display = 'block'; fetchHistory();
             } else if (view === 'admin') {
-                adminPage.style.display = 'block';
-                mainCard.classList.add('admin-active');
-                switchAdminTab('records');
+                adminPage.style.display = 'block'; mainCard.classList.add('admin-active'); switchAdminTab('records');
             } else {
                 clockPage.style.display = 'block';
-                if (userCoords) {
-                    gpsDisplay.style.display = 'block';
-                    mainMapBox.style.display = 'block';
-                }
+                if (userCoords) { gpsDisplay.style.display = 'block'; mainMapBox.style.display = 'block'; }
             }
         };
 
         window.switchAdminTab = function(tab) {
-            const recordsContent = document.getElementById('admin-tab-records-content');
-            const settingsContent = document.getElementById('admin-tab-settings-content');
             const tabRec = document.getElementById('tab-records');
             const tabSet = document.getElementById('tab-settings');
             if (tab === 'records') {
-                recordsContent.style.display = 'block'; settingsContent.style.display = 'none';
+                document.getElementById('admin-tab-records-content').style.display = 'block';
+                document.getElementById('admin-tab-settings-content').style.display = 'none';
                 tabRec.classList.add('active'); tabSet.classList.remove('active');
                 fetchAdminHistory();
             } else {
-                recordsContent.style.display = 'none'; settingsContent.style.display = 'block';
+                document.getElementById('admin-tab-records-content').style.display = 'none';
+                document.getElementById('admin-tab-settings-content').style.display = 'block';
                 tabRec.classList.remove('active'); tabSet.classList.add('active');
                 renderLocationList();
             }
@@ -512,7 +501,6 @@
             } else { alert("密碼錯誤"); }
         };
 
-        // 更新管理端預覽地圖
         function updateAdminMapPreview(lat, lng) {
             const previewBox = document.getElementById('admin-map-preview');
             const iframe = document.getElementById('admin-map-iframe');
@@ -531,56 +519,25 @@
             } else { alert("定位中，請稍後"); }
         };
 
-        // 加強型地址搜尋功能
         window.searchAddress = async function() {
             const addressInput = document.getElementById('search-address').value.trim();
-            if (!addressInput) {
-                alert("請輸入地址");
-                return;
-            }
+            if (!addressInput) { alert("請輸入地址"); return; }
             const statusText = document.getElementById('status');
-            statusText.innerText = "正在精確定位地址...";
-            statusText.style.display = "block";
+            statusText.innerText = "正在定位..."; statusText.style.display = "block";
             try {
-                // 1. 移除地址中可能的樓層或室資訊（搜尋引擎對這些細節較敏感）
                 let cleanAddress = addressInput.split(/[樓Ff室]/)[0];
-                
-                // 確保包含「台灣」並強制限制在台灣區域進行搜尋
                 const searchQuery = cleanAddress.includes("台灣") ? cleanAddress : "台灣 " + cleanAddress;
-                
                 const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=tw&limit=1`);
                 const data = await response.json();
-                
                 if (data && data.length > 0) {
-                    const lat = data[0].lat;
-                    const lng = data[0].lon;
-                    document.getElementById('set-lat').value = lat;
-                    document.getElementById('set-lng').value = lng;
-                    updateAdminMapPreview(lat, lng);
-                    statusText.innerText = "搜尋成功！地圖已標註位置";
+                    const lat = data[0].lat; const lng = data[0].lon;
+                    document.getElementById('set-lat').value = lat; document.getElementById('set-lng').value = lng;
+                    updateAdminMapPreview(lat, lng); statusText.innerText = "搜尋成功！";
                     setTimeout(() => { if(document.getElementById('admin-page').style.display === 'block') statusText.style.display = 'none'; }, 2500);
                 } else {
-                    // 若搜尋不到，嘗試更廣泛的搜尋方式：移除行政區名稱（有時行政區定義有差異）
-                    const widerSearch = cleanAddress.replace(/..區/, "");
-                    const response2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent("台灣 " + widerSearch)}&countrycodes=tw&limit=1`);
-                    const data2 = await response2.json();
-                    
-                    if (data2 && data2.length > 0) {
-                        const lat = data2[0].lat;
-                        const lng = data2[0].lon;
-                        document.getElementById('set-lat').value = lat;
-                        document.getElementById('set-lng').value = lng;
-                        updateAdminMapPreview(lat, lng);
-                        statusText.innerText = "搜尋成功 (模糊匹配)！";
-                    } else {
-                        alert("搜尋不到該地址。\n\n提示：\n1. 請移除樓層與室號 (例如：5樓、A室)。\n2. 確保地址包含縣市路名。\n3. 或直接點擊「抓取目前位置」。");
-                        statusText.innerText = "";
-                    }
+                    alert("找不到該地址，請簡化地址再試。"); statusText.innerText = "";
                 }
-            } catch (e) {
-                alert("地址搜尋服務目前不可用，請手動輸入座標。");
-                statusText.innerText = "";
-            }
+            } catch (e) { alert("搜尋服務不可用"); statusText.innerText = ""; }
         };
 
         window.addNewLocation = async function() {
@@ -588,18 +545,15 @@
             const lat = parseFloat(document.getElementById('set-lat').value);
             const lng = parseFloat(document.getElementById('set-lng').value);
             const radius = parseInt(document.getElementById('set-radius').value);
-            if (!remark || isNaN(lat) || isNaN(lng) || isNaN(radius)) { alert("請填寫完整資訊並確認座標"); return; }
+            if (!remark || isNaN(lat) || isNaN(lng) || isNaN(radius)) { alert("請填寫完整資訊"); return; }
             const newLoc = { id: Date.now().toString(), remark, lat, lng, radius };
             officeLocations.push(newLoc);
             try {
                 await setDoc(doc(db, "tenants/Corin_Beauty/settings", "config"), { locations: officeLocations });
                 renderLocationList();
-                document.getElementById('set-remark').value = "";
-                document.getElementById('search-address').value = "";
-                document.getElementById('set-lat').value = "";
-                document.getElementById('set-lng').value = "";
-                document.getElementById('set-radius').value = "";
-                document.getElementById('admin-map-preview').style.display = 'none';
+                document.getElementById('set-remark').value = ""; document.getElementById('search-address').value = "";
+                document.getElementById('set-lat').value = ""; document.getElementById('set-lng').value = "";
+                document.getElementById('set-radius').value = ""; document.getElementById('admin-map-preview').style.display = 'none';
                 alert("據點已新增");
             } catch (e) { alert("儲存失敗"); }
         };
@@ -612,10 +566,7 @@
 
         function renderLocationList() {
             const container = document.getElementById('location-list-ui');
-            if (officeLocations.length === 0) { 
-                container.innerHTML = '<p style="font-size:12px; color:#ccc; text-align:center; padding: 20px;">尚無設定據點</p>'; 
-                return; 
-            }
+            if (officeLocations.length === 0) { container.innerHTML = '<p style="font-size:12px; color:#ccc; text-align:center; padding: 20px;">尚無設定據點</p>'; return; }
             container.innerHTML = officeLocations.map(l => `
                 <div class="location-card">
                     <div class="loc-info">
@@ -645,35 +596,27 @@
             const gpsDisplay = document.getElementById('gps-display');
             const mainMapBox = document.getElementById('main-map-box');
             const mainMapIframe = document.getElementById('main-map-iframe');
-
             try {
-                showView('clock');
-                await liff.init({ liffId: "2008997688-9iB69K6M" });
+                showView('clock'); await liff.init({ liffId: "2008997688-9iB69K6M" });
                 if (!liff.isLoggedIn()) { liff.login(); return; }
-                userProfile = await liff.getProfile();
-                await signInAnonymously(auth);
+                userProfile = await liff.getProfile(); await signInAnonymously(auth);
                 const configSnap = await getDoc(doc(db, "tenants/Corin_Beauty/settings", "config"));
                 if (configSnap.exists()) officeLocations = configSnap.data().locations || [];
-
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                     mainMapIframe.src = `https://maps.google.com/maps?q=${userCoords.lat},${userCoords.lng}&hl=zh-TW&z=17&output=embed`;
-                    mainMapBox.style.display = 'block';
-                    gpsDisplay.style.display = "block";
+                    mainMapBox.style.display = 'block'; gpsDisplay.style.display = "block";
                     gpsDisplay.innerText = `📍 目前位置: ${userCoords.lat.toFixed(4)}, ${userCoords.lng.toFixed(4)}`;
                     document.getElementById('loader').style.display = "none";
                     document.getElementById('btn-container').style.display = "flex";
-                    statusText.innerText = "請確認地圖位置並打卡";
-                }, (err) => {
-                    statusText.innerText = "定位失敗，請開啟 GPS";
-                }, { enableHighAccuracy: true, timeout: 10000 });
+                    statusText.innerText = "定位成功，可開始打卡";
+                }, (err) => { statusText.innerText = "定位失敗，請開啟 GPS"; }, { enableHighAccuracy: true, timeout: 10000 });
             } catch (err) { statusText.innerText = "連線中斷"; }
         }
 
         window.submitCheckIn = async function(type) {
             if (!userProfile || !userCoords) return;
-            let allowClockIn = false;
-            let currentOfficeName = "";
+            let allowClockIn = false; let currentOfficeName = "";
             if (officeLocations.length > 0) {
                 officeLocations.forEach(loc => {
                     const dist = getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng);
@@ -683,8 +626,7 @@
 
             if (!allowClockIn) {
                 document.getElementById('status').innerText = `不在打卡範圍內，無法打卡`;
-                document.getElementById('status').style.color = "var(--error-color)";
-                return;
+                document.getElementById('status').style.color = "var(--error-color)"; return;
             }
 
             document.getElementById('btn-container').style.display = "none";
@@ -697,7 +639,7 @@
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId, userName: userProfile.displayName,
                     locationName: currentOfficeName, lat: userCoords.lat, lng: userCoords.lng, 
-                    timestamp: serverTimestamp(), type: type, client: "V3.6"
+                    timestamp: serverTimestamp(), type: type, client: "V3.7"
                 });
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
@@ -742,25 +684,50 @@
             renderHistoryList(filtered, document.getElementById('admin-list'), true);
         };
 
+        // 核心排序修正：確保最新紀錄永遠在最上方
         function renderHistoryList(records, container, isAdmin) {
             let groups = {};
             records.forEach(rec => {
                 if (!rec.timestamp) return;
-                const d = rec.timestamp.toDate(); const key = `${d.toLocaleDateString('zh-TW')}_${rec.userName}`;
-                if (!groups[key]) groups[key] = { date: d.toLocaleDateString('zh-TW'), user: rec.userName, items: [], totalMinutes: 0 };
+                const d = rec.timestamp.toDate(); 
+                const dateKey = d.toLocaleDateString('zh-TW');
+                const userKey = rec.userName || '未知用戶';
+                const key = `${dateKey}_${userKey}`;
+
+                if (!groups[key]) {
+                    groups[key] = { 
+                        date: dateKey, 
+                        user: userKey, 
+                        items: [], 
+                        totalMinutes: 0,
+                        latestTimestamp: 0 // 用於組間排序
+                    };
+                }
                 groups[key].items.push(rec);
+                // 更新該組最新的秒數，確保後續組間排序
+                if (rec.timestamp.seconds > groups[key].latestTimestamp) {
+                    groups[key].latestTimestamp = rec.timestamp.seconds;
+                }
             });
+
+            // 計算當日總工時
             Object.values(groups).forEach(g => {
-                const ins = g.items.filter(i => i.type === '簽到'); const outs = g.items.filter(i => i.type === '簽退');
+                const ins = g.items.filter(i => i.type === '簽到'); 
+                const outs = g.items.filter(i => i.type === '簽退');
                 if (ins.length && outs.length) {
                     const firstIn = Math.min(...ins.map(i => i.timestamp.toDate()));
                     const lastOut = Math.max(...outs.map(i => i.timestamp.toDate()));
                     if (lastOut > firstIn) g.totalMinutes = (lastOut - firstIn) / (1000 * 60);
                 }
             });
-            const sorted = Object.values(groups).sort((a, b) => new Date(b.date.replace(/\//g,'-')) - new Date(a.date.replace(/\//g,'-')));
-            if (!sorted.length) { container.innerHTML = '<p style="text-align:center; color:#ccc; margin-top:20px;">尚無紀錄</p>'; return; }
-            container.innerHTML = sorted.map(g => {
+
+            // 修正：按「最新打卡時間」由大到小排序所有群組
+            const sortedGroups = Object.values(groups).sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+
+            if (!sortedGroups.length) { container.innerHTML = '<p style="text-align:center; color:#ccc; margin-top:20px;">尚無紀錄</p>'; return; }
+
+            container.innerHTML = sortedGroups.map(g => {
+                // 內部細項排序：確保同一天內最新打卡的也在上方
                 const itemsHtml = g.items.sort((a,b) => b.timestamp.seconds - a.timestamp.seconds).map(rec => {
                     const timeStr = rec.timestamp.toDate().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
                     return `
