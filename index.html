@@ -76,7 +76,6 @@
             margin: 15px 0 20px 0;
         }
 
-        /* 打卡頁面內崁地圖樣式 */
         .main-map-container {
             width: 100%;
             height: 250px; 
@@ -172,17 +171,28 @@
         .item-date { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
         .item-time { font-size: 18px; font-weight: 900; color: #2d3436; }
 
-        .btn-map-inline {
+        /* 打卡地點名稱樣式 */
+        .item-loc-name {
             font-size: 10px;
             color: var(--primary-color);
+            font-weight: 800;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .btn-delete {
+            font-size: 10px;
+            color: var(--error-color);
             background: #fff;
-            border: 1px solid var(--primary-color);
+            border: 1px solid var(--error-color);
             padding: 3px 8px;
             border-radius: 6px;
             font-weight: bold;
             cursor: pointer;
-            margin-top: 8px;
             display: inline-block;
+            margin-top: 8px;
         }
 
         .admin-header-ui {
@@ -214,7 +224,6 @@
             font-size: 13px; background: white; font-weight: 600; outline: none;
         }
 
-        /* 管理者地點列表 - 美化版 */
         .location-manager-list { margin-top: 15px; text-align: left; }
         .location-card {
             background: #ffffff; 
@@ -225,7 +234,7 @@
             display: flex; 
             justify-content: space-between; 
             align-items: center;
-            border-left: 6px solid var(--primary-color); /* 與簽到一致的側邊欄 */
+            border-left: 6px solid var(--primary-color); 
             box-shadow: 0 4px 10px rgba(0,0,0,0.01);
         }
         .loc-info { display: flex; flex-direction: column; gap: 4px; }
@@ -261,8 +270,6 @@
         .modal-content {
             background: white; padding: 25px; border-radius: 28px; width: 90%; max-width: 380px; text-align: center;
         }
-        .map-frame-box { width: 100%; height: 280px; background: #eee; border-radius: 18px; overflow: hidden; margin-top: 10px; }
-        .map-frame-box iframe { width: 100%; height: 100%; border: none; }
 
         .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
         .modal-btn { flex: 1; padding: 12px; border-radius: 14px; border: none; font-weight: bold; cursor: pointer; }
@@ -353,21 +360,8 @@
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
-        <div class="version">ORIGIN CLOUD V3.2 PRO</div>
+        <div class="version">ORIGIN CLOUD V3.3 PRO</div>
         <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
-    </div>
-
-    <!-- 地圖視窗 -->
-    <div id="map-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 style="margin: 0; color: var(--primary-color); font-size: 18px;">地點位置</h3>
-            <div class="map-frame-box">
-                <iframe id="map-iframe" src=""></iframe>
-            </div>
-            <div class="modal-btns">
-                <button class="modal-btn" style="background:#f1f5f9; color:#64748b;" onclick="closeMapModal()">關閉</button>
-            </div>
-        </div>
     </div>
 
     <!-- 管理員密碼 -->
@@ -419,6 +413,16 @@
         let officeLocations = []; 
         let pendingDeleteId = null;
 
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; 
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
         window.showView = function(view) {
             const clockPage = document.getElementById('clock-page');
             const historyPage = document.getElementById('history-page');
@@ -463,12 +467,6 @@
                 renderLocationList();
             }
         };
-
-        window.openMapModal = function(lat, lng) {
-            document.getElementById('map-iframe').src = `https://maps.google.com/maps?q=${lat},${lng}&hl=zh-TW&z=16&output=embed`;
-            document.getElementById('map-modal').style.display = 'flex';
-        };
-        window.closeMapModal = function() { document.getElementById('map-modal').style.display = 'none'; };
 
         window.openAdminLoginModal = function() { document.getElementById('admin-login-modal').style.display = 'flex'; };
         window.closeAdminLoginModal = function() { document.getElementById('admin-login-modal').style.display = 'none'; };
@@ -581,7 +579,10 @@
 
         window.submitCheckIn = async function(type) {
             if (!userProfile || !userCoords) return;
+            
             let allowClockIn = false;
+            let currentOfficeName = "";
+
             if (officeLocations.length > 0) {
                 officeLocations.forEach(loc => {
                     const R = 6371e3;
@@ -591,9 +592,15 @@
                     const dLng = (loc.lng - userCoords.lng) * Math.PI/180;
                     const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
                     const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                    if (dist <= loc.radius) allowClockIn = true;
+                    if (dist <= loc.radius) {
+                        allowClockIn = true;
+                        currentOfficeName = loc.remark;
+                    }
                 });
-            } else { allowClockIn = true; }
+            } else { 
+                allowClockIn = true; 
+                currentOfficeName = "未設據點";
+            }
 
             if (!allowClockIn) {
                 document.getElementById('status').innerText = `不在打卡範圍內，無法打卡`;
@@ -610,8 +617,14 @@
                 const now = new Date();
                 const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
-                    userId: userProfile.userId, userName: userProfile.displayName,
-                    lat: userCoords.lat, lng: userCoords.lng, timestamp: serverTimestamp(), type: type, client: "V3.2"
+                    userId: userProfile.userId, 
+                    userName: userProfile.displayName,
+                    locationName: currentOfficeName, // 儲存據點名稱
+                    lat: userCoords.lat, 
+                    lng: userCoords.lng, 
+                    timestamp: serverTimestamp(), 
+                    type: type, 
+                    client: "V3.3"
                 });
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
@@ -684,12 +697,13 @@
                                 ${isAdmin ? `<span class="item-user">${rec.userName}</span>` : ''}
                                 <span class="item-type">${rec.type}</span>
                                 <span class="item-date">${g.date}</span>
-                                <div class="action-group">
-                                    <div class="btn-map-inline" onclick="openMapModal(${rec.lat}, ${rec.lng})">📍 地圖位置</div>
-                                    ${!isAdmin ? `<button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷</button>` : ''}
-                                }
+                                <!-- 直接顯示據點名稱，移除地圖按鈕 -->
+                                <div class="item-loc-name">📍 ${rec.locationName || '未知據點'}</div>
                             </div>
-                            <div class="item-time">${timeStr}</div>
+                            <div class="item-time">
+                                <div>${timeStr}</div>
+                                ${!isAdmin ? `<div style="text-align:right;"><button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷</button></div>` : ''}
+                            </div>
                         </div>
                     `;
                 }).join('');
