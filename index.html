@@ -3,33 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>原點雲打卡系統 - 除錯模式</title>
+    <title>原點雲打卡系統</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        :root { --primary-color: #00ffcc; --bg-color: #121212; --card-bg: #1e1e1e; --error-color: #ff4d4d; }
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: var(--bg-color); color: white; }
-        .card { background: var(--card-bg); padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; width: 85%; max-width: 320px; border: 1px solid #333; }
-        .brand { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: var(--primary-color); }
-        .loader { border: 3px solid #333; border-top: 3px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        :root { 
+            --primary-color: #00ffcc; 
+            --bg-color: #121212; 
+            --card-bg: #1e1e1e; 
+            --text-main: #ffffff;
+            --text-dim: #888888;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            background: var(--bg-color); 
+            color: var(--text-main); 
+        }
+        .card { 
+            background: var(--card-bg); 
+            padding: 40px; 
+            border-radius: 24px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6); 
+            text-align: center; 
+            width: 85%; 
+            max-width: 320px; 
+            border: 1px solid #333;
+            transition: all 0.3s ease;
+        }
+        .brand { 
+            font-size: 26px; 
+            font-weight: 800; 
+            margin-bottom: 10px; 
+            letter-spacing: 3px; 
+            color: var(--primary-color);
+            text-transform: uppercase;
+        }
+        .loader { 
+            border: 3px solid #333; 
+            border-top: 3px solid var(--primary-color); 
+            border-radius: 50%; 
+            width: 50px; 
+            height: 50px; 
+            animation: spin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite; 
+            margin: 30px auto; 
+        }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #status { font-size: 14px; color: #aaa; margin-top: 10px; }
-        #error-log { font-size: 12px; color: var(--error-color); background: rgba(255, 77, 77, 0.1); padding: 10px; border-radius: 8px; margin-top: 15px; display: none; word-break: break-all; }
-        button { background: var(--primary-color); color: black; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; margin-top: 15px; cursor: pointer; display: none; }
+        
+        .success-icon { 
+            color: var(--primary-color); 
+            font-size: 64px; 
+            display: none; 
+            margin: 25px 0;
+            animation: scaleUp 0.4s ease-out;
+        }
+        @keyframes scaleUp {
+            0% { transform: scale(0); }
+            80% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        #status { 
+            font-size: 15px; 
+            color: var(--text-dim); 
+            margin-top: 20px; 
+            line-height: 1.6;
+            font-weight: 300;
+        }
+        .version {
+            position: absolute;
+            bottom: 20px;
+            font-size: 10px;
+            color: #444;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="brand">原點雲 - 系統檢查</div>
+        <div class="brand">原點雲</div>
         <div id="loader" class="loader"></div>
-        <p id="status">正在與 LINE 平台連線...</p>
-        <div id="error-log"></div>
-        <button id="retry-btn" onclick="location.reload()">重新整理</button>
+        <div id="success" class="success-icon">✔</div>
+        <p id="status">正在取得地理原點...</p>
     </div>
+    <div class="version">ORIGIN CLOUD V2.1 PRO</div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        // Firebase 配置 [cite: User Input]
         const firebaseConfig = {
             apiKey: "AIzaSyC1CUSE-tou-H_BxfEGg4mxA30HsGF8DWE",
             authDomain: "origin-cloud-clockin.firebaseapp.com",
@@ -43,59 +109,57 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        function showError(msg) {
-            document.getElementById('loader').style.display = "none";
-            document.getElementById('status').innerText = "初始化失敗";
-            const log = document.getElementById('error-log');
-            log.innerText = "錯誤原因: " + msg;
-            log.style.display = "block";
-            document.getElementById('retry-btn').style.display = "inline-block";
-        }
-
-        async function init() {
+        async function startOriginClock() {
             try {
-                // 檢查點 1: LIFF 初始化
-                await liff.init({ liffId: "2008997688-9iB69K6M" })
-                    .catch(err => { throw new Error("LINE 初始化失敗: " + err.message); });
+                // 初始化 LIFF
+                await liff.init({ liffId: "2008997688-9iB69K6M" });
                 
                 if (!liff.isLoggedIn()) {
                     liff.login();
                     return;
                 }
 
-                document.getElementById('status').innerText = "身分驗證成功，獲取定位中...";
-
                 const profile = await liff.getProfile();
-
-                // 檢查點 2: 定位取得
+                
+                // 執行定位
                 navigator.geolocation.getCurrentPosition(async (pos) => {
-                    try {
-                        // 檢查點 3: Firebase 寫入
-                        await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
-                            userId: profile.userId,
-                            userName: profile.displayName,
-                            lat: pos.coords.latitude,
-                            lng: pos.coords.longitude,
-                            timestamp: serverTimestamp(),
-                            client: "Origin-Cloud-Debug"
-                        });
+                    const { latitude, longitude } = pos.coords;
 
-                        document.getElementById('loader').style.display = "none";
-                        document.getElementById('status').innerText = "打卡成功！";
-                        setTimeout(() => liff.closeWindow(), 2000);
-                    } catch (dbErr) {
-                        showError("資料庫寫入失敗 (檢查 Rules): " + dbErr.message);
-                    }
-                }, (geoErr) => {
-                    showError("定位權限遭拒或失敗: " + geoErr.message);
-                }, { enableHighAccuracy: true, timeout: 10000 });
+                    // 寫入 Firebase
+                    await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
+                        userId: profile.userId,
+                        userName: profile.displayName,
+                        lat: latitude,
+                        lng: longitude,
+                        timestamp: serverTimestamp(),
+                        client: "Origin-Cloud-Production"
+                    });
+
+                    // UI 更新成功狀態
+                    document.getElementById('loader').style.display = "none";
+                    document.getElementById('success').style.display = "block";
+                    document.getElementById('status').innerText = "打卡成功！\n祝您有美好的一天";
+                    document.getElementById('status').style.color = "#00ffcc";
+                    
+                    // 自動關閉視窗
+                    setTimeout(() => liff.closeWindow(), 2000);
+
+                }, (err) => {
+                    document.getElementById('loader').style.display = "none";
+                    document.getElementById('status').innerText = "定位失敗\n請確認 GPS 權限已開啟";
+                    document.getElementById('status').style.color = "#ff4d4d";
+                }, { 
+                    enableHighAccuracy: true, 
+                    timeout: 8000 
+                });
 
             } catch (err) {
-                showError(err.message);
+                console.error(err);
+                document.getElementById('status').innerText = "系統連線中斷";
             }
         }
 
-        window.onload = init;
+        window.onload = startOriginClock;
     </script>
 </body>
 </html>
