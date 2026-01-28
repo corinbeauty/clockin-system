@@ -137,14 +137,13 @@
         .history-list::-webkit-scrollbar { width: 4px; }
         .history-list::-webkit-scrollbar-thumb { background: #eee; border-radius: 10px; }
 
-        /* 紀錄卡片 - 修正為直向佈局 */
         .history-item {
             background: #ffffff;
             padding: 15px;
             border-radius: 20px;
             margin-bottom: 12px;
             display: flex;
-            flex-direction: column; /* 改回直的 */
+            flex-direction: column; 
             align-items: flex-start;
             border: 1px solid #f1f4f8;
             box-shadow: 0 4px 10px rgba(0,0,0,0.01);
@@ -172,7 +171,6 @@
         .item-type { font-size: 14px; font-weight: 800; color: #2d3436; }
         .item-date { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
         
-        /* 紀錄卡片中的時間與按鈕區域 */
         .item-time-row {
             display: flex;
             justify-content: space-between;
@@ -352,6 +350,14 @@
                 <div class="controls-box" style="text-align: left; padding: 15px;">
                     <label style="font-size: 11px; font-weight: bold; color: var(--primary-color);">新增打卡地點</label>
                     <input type="text" id="set-remark" class="admin-input" placeholder="據點名稱 (如: 台北旗艦店)">
+                    
+                    <!-- 新增：地址搜尋座標 -->
+                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color); margin-top: 10px; display: block;">地址搜尋座標</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="search-address" class="admin-input" placeholder="輸入地址 (例如: 台北市101)">
+                        <button class="btn" style="width: auto; margin-top: 8px; font-size: 13px; padding: 0 15px;" onclick="searchAddress()">搜尋</button>
+                    </div>
+
                     <div style="display: flex; gap: 8px;">
                         <input type="number" id="set-lat" class="admin-input" step="any" placeholder="緯度 Lat">
                         <input type="number" id="set-lng" class="admin-input" step="any" placeholder="經度 Lng">
@@ -370,7 +376,7 @@
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
-        <div class="version">ORIGIN CLOUD V3.3 PRO</div>
+        <div class="version">ORIGIN CLOUD V3.4 PRO</div>
         <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
     </div>
 
@@ -494,6 +500,35 @@
             } else { alert("定位中，請稍後"); }
         };
 
+        // 新增：地址搜尋經緯度
+        window.searchAddress = async function() {
+            const address = document.getElementById('search-address').value;
+            if (!address) {
+                alert("請輸入要搜尋的地址");
+                return;
+            }
+            const statusText = document.getElementById('status');
+            statusText.innerText = "正在搜尋地址...";
+            statusText.style.display = "block";
+            try {
+                // 使用 Nominatim 開源地理編碼服務 (不需 API Key)
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    document.getElementById('set-lat').value = data[0].lat;
+                    document.getElementById('set-lng').value = data[0].lon;
+                    statusText.innerText = "搜尋成功，已帶入座標";
+                    setTimeout(() => { if(document.getElementById('admin-page').style.display === 'block') statusText.style.display = 'none'; }, 2000);
+                } else {
+                    alert("找不到該地址，請嘗試更詳細的名稱");
+                    statusText.innerText = "";
+                }
+            } catch (e) {
+                alert("地址搜尋出錯，請稍後再試");
+                statusText.innerText = "";
+            }
+        };
+
         window.addNewLocation = async function() {
             const remark = document.getElementById('set-remark').value;
             const lat = parseFloat(document.getElementById('set-lat').value);
@@ -506,6 +541,7 @@
                 await setDoc(doc(db, "tenants/Corin_Beauty/settings", "config"), { locations: officeLocations });
                 renderLocationList();
                 document.getElementById('set-remark').value = "";
+                document.getElementById('search-address').value = "";
                 document.getElementById('set-lat').value = "";
                 document.getElementById('set-lng').value = "";
                 document.getElementById('set-radius').value = "";
@@ -529,7 +565,7 @@
                 <div class="location-card">
                     <div class="loc-info">
                         <span class="loc-name">${l.remark}</span>
-                        <span class="loc-detail">📍 ${l.lat.toFixed(4)}, ${l.lng.toFixed(4)}</span>
+                        <span class="loc-detail">📍 ${parseFloat(l.lat).toFixed(4)}, ${parseFloat(l.lng).toFixed(4)}</span>
                         <div class="loc-radius-pill">容許範圍 ${l.radius}m</div>
                     </div>
                     <span class="btn-loc-del" onclick="deleteLocation('${l.id}')">刪除</span>
@@ -628,7 +664,7 @@
                     lng: userCoords.lng, 
                     timestamp: serverTimestamp(), 
                     type: type, 
-                    client: "V3.3"
+                    client: "V3.4"
                 });
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
