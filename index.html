@@ -283,6 +283,7 @@
             margin-top: 15px; 
             line-height: 1.6;
             font-weight: 500;
+            white-space: pre-wrap;
         }
         .version {
             margin-top: 25px;
@@ -463,24 +464,37 @@
 
         async function initSystem() {
             try {
-                await liff.init({ liffId: "2008997688-9iB69K6M" });
-                if (!liff.isLoggedIn()) { liff.login(); return; }
-                userProfile = await liff.getProfile();
-                await signInAnonymously(auth);
+                // Step 1: LIFF Init
+                await liff.init({ liffId: "2008997688-9iB69K6M" }).catch(e => { throw new Error("LIFF 初始化失敗: " + e.message); });
                 
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+                
+                userProfile = await liff.getProfile().catch(e => { throw new Error("取得 LINE 個人資料失敗: " + e.message); });
+                
+                // Step 2: Firebase Auth
+                await signInAnonymously(auth).catch(e => { throw new Error("資料庫連線驗證失敗: " + e.message); });
+                
+                // Step 3: Geolocation
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                     document.getElementById('loader').style.display = "none";
                     document.getElementById('btn-container').style.display = "flex";
                     document.getElementById('status').innerText = "定位完成，請選擇打卡類型";
+                    document.getElementById('status').style.color = "var(--text-dim)";
                 }, (err) => {
                     document.getElementById('loader').style.display = "none";
-                    document.getElementById('status').innerText = "定位失敗，請確認 GPS 已開啟";
+                    document.getElementById('status').innerText = "定位失敗，請確認 GPS 已開啟\n(" + err.message + ")";
                     document.getElementById('status').style.color = "var(--error-color)";
                 }, { enableHighAccuracy: true, timeout: 8000 });
+                
             } catch (err) {
                 console.error(err);
-                document.getElementById('status').innerText = "系統連線中斷";
+                document.getElementById('loader').style.display = "none";
+                document.getElementById('status').innerText = "系統連線中斷\n" + err.message;
+                document.getElementById('status').style.color = "var(--error-color)";
             }
         }
 
@@ -515,7 +529,7 @@
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('btn-container').style.display = "flex";
                 document.getElementById('nav-history-btn').style.display = "inline-block";
-                document.getElementById('status').innerText = "寫入失敗，請重試";
+                document.getElementById('status').innerText = "寫入失敗，請重試\n(" + e.message + ")";
                 document.getElementById('status').style.color = "var(--error-color)";
             }
         };
@@ -537,7 +551,7 @@
                 document.getElementById('user-stat-out').textContent = countOut;
                 renderHistoryList(records, listContainer, false);
             } catch (e) {
-                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">讀取失敗</p>';
+                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">讀取失敗\n' + e.message + '</p>';
             }
         }
 
@@ -563,7 +577,7 @@
                 });
                 filterAdminHistory();
             } catch (e) {
-                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">管理者讀取失敗</p>';
+                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">管理者讀取失敗\n' + e.message + '</p>';
             }
         }
 
@@ -580,7 +594,6 @@
         };
 
         function renderHistoryList(records, container, isAdminView) {
-            // 分組資料 (按日期 + 人員)
             let groups = {};
             records.forEach(rec => {
                 if (!rec.timestamp) return;
@@ -593,15 +606,12 @@
                 groups[key].items.push(rec);
             });
 
-            // 更新工時計算邏輯：第一個簽到 - 最後一個簽退
             Object.values(groups).forEach(group => {
                 const inRecords = group.items.filter(i => i.type === '簽到');
                 const outRecords = group.items.filter(i => i.type === '簽退');
 
                 if (inRecords.length > 0 && outRecords.length > 0) {
-                    // 找到最早的簽到時間
                     const firstIn = inRecords.reduce((min, p) => p.timestamp.toDate() < min ? p.timestamp.toDate() : min, inRecords[0].timestamp.toDate());
-                    // 找到最晚的簽退時間
                     const lastOut = outRecords.reduce((max, p) => p.timestamp.toDate() > max ? p.timestamp.toDate() : max, outRecords[0].timestamp.toDate());
 
                     if (lastOut > firstIn) {
@@ -617,7 +627,7 @@
             });
 
             if (sortedGroups.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #bdc3c7; margin-top: 30px;">尚無紀錄</p>';
+                container.innerHTML = '<p style="text-align: center; color: #bdc3c7; margin-top: 30px;">尚與資料庫同步中或尚無紀錄</p>';
                 return;
             }
 
