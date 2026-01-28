@@ -172,8 +172,6 @@
         .item-date { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
         .item-time { font-size: 18px; font-weight: 900; color: #2d3436; }
 
-        .action-group { display: flex; gap: 8px; margin-top: 8px; }
-
         .btn-map-inline {
             font-size: 10px;
             color: var(--primary-color);
@@ -183,18 +181,7 @@
             border-radius: 6px;
             font-weight: bold;
             cursor: pointer;
-            display: inline-block;
-        }
-
-        .btn-delete {
-            font-size: 10px;
-            color: var(--error-color);
-            background: #fff;
-            border: 1px solid var(--error-color);
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
+            margin-top: 8px;
             display: inline-block;
         }
 
@@ -227,16 +214,44 @@
             font-size: 13px; background: white; font-weight: 600; outline: none;
         }
 
-        /* 管理者地點列表 */
+        /* 管理者地點列表 - 美化版 */
         .location-manager-list { margin-top: 15px; text-align: left; }
         .location-card {
-            background: white; padding: 12px; border-radius: 16px; margin-bottom: 10px;
-            border: 1px solid #edf2f7; display: flex; justify-content: space-between; align-items: center;
+            background: #ffffff; 
+            padding: 16px; 
+            border-radius: 20px; 
+            margin-bottom: 12px;
+            border: 1px solid #f1f4f8; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            border-left: 6px solid var(--primary-color); /* 與簽到一致的側邊欄 */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.01);
         }
-        .loc-info { display: flex; flex-direction: column; }
-        .loc-name { font-size: 14px; font-weight: 800; color: var(--text-main); }
-        .loc-detail { font-size: 10px; color: var(--text-dim); }
-        .btn-loc-del { color: var(--error-color); font-size: 12px; cursor: pointer; padding: 5px; font-weight: bold; }
+        .loc-info { display: flex; flex-direction: column; gap: 4px; }
+        .loc-name { font-size: 15px; font-weight: 800; color: var(--text-main); }
+        .loc-detail { font-size: 10px; color: var(--text-dim); letter-spacing: 0.5px; }
+        .loc-radius-pill { 
+            font-size: 9px; 
+            background: var(--primary-light); 
+            color: var(--primary-color); 
+            padding: 2px 8px; 
+            border-radius: 100px; 
+            width: fit-content;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+        .btn-loc-del { 
+            color: var(--error-color); 
+            font-size: 11px; 
+            cursor: pointer; 
+            padding: 6px 12px; 
+            font-weight: 800; 
+            background: #fff0f0;
+            border-radius: 10px;
+            transition: 0.2s;
+        }
+        .btn-loc-del:active { transform: scale(0.9); background: var(--error-color); color: #fff; }
 
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -338,7 +353,7 @@
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
-        <div class="version">ORIGIN CLOUD V3.0 PRO</div>
+        <div class="version">ORIGIN CLOUD V3.2 PRO</div>
         <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
     </div>
 
@@ -403,17 +418,6 @@
         let allRecords = []; 
         let officeLocations = []; 
         let pendingDeleteId = null;
-
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; 
-            const φ1 = lat1 * Math.PI / 180;
-            const φ2 = lat2 * Math.PI / 180;
-            const Δφ = (lat2 - lat1) * Math.PI / 180;
-            const Δλ = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δlng / 2) * Math.sin(Δlng / 2); // Error in formula fixed in logical blocks below
-            // Note: Correct Haversine implementation in submitCheckIn
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        }
 
         window.showView = function(view) {
             const clockPage = document.getElementById('clock-page');
@@ -494,6 +498,9 @@
                 await setDoc(doc(db, "tenants/Corin_Beauty/settings", "config"), { locations: officeLocations });
                 renderLocationList();
                 document.getElementById('set-remark').value = "";
+                document.getElementById('set-lat').value = "";
+                document.getElementById('set-lng').value = "";
+                document.getElementById('set-radius').value = "";
                 alert("據點已新增");
             } catch (e) { alert("儲存失敗"); }
         };
@@ -506,12 +513,16 @@
 
         function renderLocationList() {
             const container = document.getElementById('location-list-ui');
-            if (officeLocations.length === 0) { container.innerHTML = '<p style="font-size:12px; color:#ccc;">尚無設定據點</p>'; return; }
+            if (officeLocations.length === 0) { 
+                container.innerHTML = '<p style="font-size:12px; color:#ccc; text-align:center; padding: 20px;">尚無設定據點</p>'; 
+                return; 
+            }
             container.innerHTML = officeLocations.map(l => `
                 <div class="location-card">
                     <div class="loc-info">
                         <span class="loc-name">${l.remark}</span>
-                        <span class="loc-detail">${l.lat.toFixed(4)}, ${l.lng.toFixed(4)} (半徑 ${l.radius}m)</span>
+                        <span class="loc-detail">📍 ${l.lat.toFixed(4)}, ${l.lng.toFixed(4)}</span>
+                        <div class="loc-radius-pill">容許範圍 ${l.radius}m</div>
                     </div>
                     <span class="btn-loc-del" onclick="deleteLocation('${l.id}')">刪除</span>
                 </div>
@@ -571,22 +582,21 @@
         window.submitCheckIn = async function(type) {
             if (!userProfile || !userCoords) return;
             let allowClockIn = false;
-            let nearestDist = Infinity;
             if (officeLocations.length > 0) {
                 officeLocations.forEach(loc => {
                     const R = 6371e3;
-                    const lat1 = userCoords.lat * Math.PI/180; const lat2 = loc.lat * Math.PI/180;
+                    const lat1 = userCoords.lat * Math.PI/180; 
+                    const lat2 = loc.lat * Math.PI/180;
                     const dLat = (loc.lat - userCoords.lat) * Math.PI/180;
                     const dLng = (loc.lng - userCoords.lng) * Math.PI/180;
                     const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
                     const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                     if (dist <= loc.radius) allowClockIn = true;
-                    if (dist < nearestDist) nearestDist = dist;
                 });
             } else { allowClockIn = true; }
 
             if (!allowClockIn) {
-                document.getElementById('status').innerText = `不在打卡範圍內 (最近距離 ${Math.round(nearestDist)}m)\n請至任一門市後再試`;
+                document.getElementById('status').innerText = `不在打卡範圍內，無法打卡`;
                 document.getElementById('status').style.color = "var(--error-color)";
                 return;
             }
@@ -601,7 +611,7 @@
                 const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId, userName: userProfile.displayName,
-                    lat: userCoords.lat, lng: userCoords.lng, timestamp: serverTimestamp(), type: type, client: "V3.0"
+                    lat: userCoords.lat, lng: userCoords.lng, timestamp: serverTimestamp(), type: type, client: "V3.2"
                 });
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
@@ -677,7 +687,7 @@
                                 <div class="action-group">
                                     <div class="btn-map-inline" onclick="openMapModal(${rec.lat}, ${rec.lng})">📍 地圖位置</div>
                                     ${!isAdmin ? `<button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷</button>` : ''}
-                                </div>
+                                }
                             </div>
                             <div class="item-time">${timeStr}</div>
                         </div>
