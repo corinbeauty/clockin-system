@@ -225,7 +225,7 @@
         .stat-card.in b { color: var(--primary-color); }
         .stat-card.out b { color: var(--secondary-color); }
 
-        /* 彈窗 */
+        /* 彈窗共通樣式 */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -268,9 +268,20 @@
             bottom: 12px;
             right: 25px;
             font-size: 10px;
-            color: rgba(0,0,0,0.03);
+            color: rgba(0,0,0,0.03); /* 極淡顏色，隱藏入口 */
             cursor: pointer;
-            padding: 10px;
+            padding: 15px;
+        }
+        .retry-btn {
+            background: var(--error-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            display: none;
         }
     </style>
 </head>
@@ -290,7 +301,7 @@
         </div>
 
         <!-- 分頁：個人紀錄區 -->
-        <div id="history-page">
+        <div id="history-page" style="display:none;">
             <div class="history-header">
                 <h3 style="margin: 0; font-size: 18px;">考勤紀錄</h3>
                 <span style="font-size: 12px; color: var(--text-dim);">個人專區</span>
@@ -308,7 +319,7 @@
         </div>
 
         <!-- 分頁：管理員查詢區 -->
-        <div id="admin-page">
+        <div id="admin-page" style="display:none;">
             <div class="admin-header-ui">
                 <h2>管理控制台</h2>
                 <p>ORIGIN CLOCK ADMIN PANEL</p>
@@ -334,9 +345,23 @@
         <p id="status">系統初始化...</p>
         <button id="retry-btn" class="retry-btn" onclick="location.reload()">重新連線</button>
         <div class="version">ORIGIN CLOUD V2.5 PRO</div>
-        <div class="admin-link" onclick="handleAdminLogin()">ADMIN</div>
+        <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
     </div>
 
+    <!-- 管理員登入彈窗 (替換 prompt 以消除網址顯示) -->
+    <div id="admin-login-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color:var(--primary-color);">管理員驗證</h3>
+            <p style="font-size:14px; color:#64748b; margin-bottom:15px;">請輸入後台訪問密碼</p>
+            <input type="password" id="admin-password-input" class="admin-select" placeholder="請輸入密碼" style="text-align:center; margin-bottom:15px; border-style: solid;">
+            <div class="modal-btns">
+                <button class="modal-btn btn-cancel" onclick="closeAdminLoginModal()">取消</button>
+                <button class="modal-btn btn-confirm" style="background:var(--primary-color);" onclick="verifyAdminPassword()">登入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 註銷確認彈窗 -->
     <div id="delete-modal" class="modal-overlay">
         <div class="modal-content">
             <h3 style="margin-top:0; color:var(--error-color); font-size: 20px;">註銷打卡？</h3>
@@ -372,17 +397,20 @@
         let allRecords = []; 
         let pendingDeleteId = null;
 
+        // 頁面切換邏輯
         window.showView = function(view) {
             const clockPage = document.getElementById('clock-page');
             const historyPage = document.getElementById('history-page');
             const adminPage = document.getElementById('admin-page');
             const status = document.getElementById('status');
             const mainCard = document.getElementById('main-card');
+            const adminEntrance = document.getElementById('admin-entrance');
 
             clockPage.style.display = 'none';
             historyPage.style.display = 'none';
             adminPage.style.display = 'none';
             mainCard.classList.remove('admin-active');
+            adminEntrance.style.display = 'block';
 
             if (view === 'history') {
                 historyPage.style.display = 'block';
@@ -392,17 +420,40 @@
                 adminPage.style.display = 'block';
                 status.style.display = 'none';
                 mainCard.classList.add('admin-active');
+                adminEntrance.style.display = 'none'; // 管理模式下隱藏入口
                 fetchAdminHistory();
             } else {
                 clockPage.style.display = 'block';
                 status.style.display = 'block';
-                status.innerText = userCoords ? "定位完成，請選擇打卡類型" : "正在取得地理原點...";
+                status.innerText = userCoords ? "定位成功，可開始打卡" : "系統連線中...";
             }
         };
 
-        window.handleAdminLogin = function() {
-            const pw = prompt("請輸入管理員驗證碼：");
-            if (pw === "1016") { showView('admin'); } else if (pw !== null) { alert("驗證失敗！"); }
+        // 自定義管理員登入彈窗控制
+        window.openAdminLoginModal = function() {
+            document.getElementById('admin-password-input').value = '';
+            document.getElementById('admin-login-modal').style.display = 'flex';
+        };
+
+        window.closeAdminLoginModal = function() {
+            document.getElementById('admin-login-modal').style.display = 'none';
+        };
+
+        window.verifyAdminPassword = function() {
+            const pw = document.getElementById('admin-password-input').value;
+            if (pw === "1016") {
+                closeAdminLoginModal();
+                showView('admin');
+            } else {
+                const statusText = document.getElementById('status');
+                statusText.innerText = "驗證失敗，密碼錯誤";
+                statusText.style.color = "var(--error-color)";
+                setTimeout(() => {
+                    statusText.innerText = userCoords ? "定位成功，可開始打卡" : "";
+                    statusText.style.color = "var(--text-dim)";
+                }, 2000);
+                closeAdminLoginModal();
+            }
         };
 
         window.openDeleteModal = function(id) { pendingDeleteId = id; document.getElementById('delete-modal').style.display = 'flex'; };
@@ -415,12 +466,15 @@
                 await deleteDoc(doc(db, "tenants/Corin_Beauty/checkins", pendingDeleteId));
                 closeDeleteModal();
                 fetchHistory();
-            } catch (e) { alert("註銷失敗"); }
+            } catch (e) { console.error("註銷失敗"); }
         };
 
         async function initSystem() {
             const statusText = document.getElementById('status');
             try {
+                // 強制初始狀態為 Clock
+                showView('clock');
+                
                 statusText.innerText = "正在連線 LINE...";
                 await liff.init({ liffId: "2008997688-9iB69K6M" });
                 if (!liff.isLoggedIn()) { liff.login(); return; }
@@ -441,6 +495,7 @@
                 }, { enableHighAccuracy: true, timeout: 10000 });
             } catch (err) {
                 statusText.innerText = "系統連線中斷";
+                console.error(err);
             }
         }
 
@@ -465,7 +520,9 @@
                 document.getElementById('success').style.display = "block";
                 document.getElementById('status').innerText = `${type}成功！`;
                 setTimeout(() => liff.closeWindow(), 2500);
-            } catch (e) { alert("提交失敗"); }
+            } catch (e) { 
+                document.getElementById('status').innerText = "提交失敗";
+            }
         };
 
         async function fetchHistory() {
