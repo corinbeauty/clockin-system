@@ -285,6 +285,19 @@
         #status { font-size: 13px; color: var(--text-dim); margin-top: 10px; line-height: 1.6; white-space: pre-line; }
         .version { margin-top: 20px; font-size: 10px; color: #bdc3c7; letter-spacing: 1px; font-weight: bold; }
         .admin-link { position: absolute; bottom: 10px; right: 20px; font-size: 10px; color: rgba(0,0,0,0.03); cursor: pointer; padding: 10px; }
+        
+        /* 管理端專用預覽地圖樣式 */
+        .admin-map-preview {
+            width: 100%;
+            height: 180px;
+            background: #eee;
+            border-radius: 15px;
+            margin-top: 15px;
+            overflow: hidden;
+            display: none;
+            border: 1px solid #e2e8f0;
+        }
+        .admin-map-preview iframe { width: 100%; height: 100%; border: none; }
     </style>
 </head>
 <body>
@@ -348,24 +361,31 @@
             <!-- 地點設定 Tab -->
             <div id="admin-tab-settings-content" style="display:none;">
                 <div class="controls-box" style="text-align: left; padding: 15px;">
-                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color);">新增打卡地點</label>
+                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color);">1. 設定名稱</label>
                     <input type="text" id="set-remark" class="admin-input" placeholder="據點名稱 (如: 台北旗艦店)">
                     
-                    <!-- 新增：地址搜尋座標 -->
-                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color); margin-top: 10px; display: block;">地址搜尋座標</label>
+                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color); margin-top: 10px; display: block;">2. 地址搜尋定位 (建議移除樓層細節)</label>
                     <div style="display: flex; gap: 8px;">
-                        <input type="text" id="search-address" class="admin-input" placeholder="輸入地址 (例如: 台北市101)">
+                        <input type="text" id="search-address" class="admin-input" placeholder="輸入地址 (例如: 台北市忠孝東路三段1號)">
                         <button class="btn" style="width: auto; margin-top: 8px; font-size: 13px; padding: 0 15px;" onclick="searchAddress()">搜尋</button>
                     </div>
 
+                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color); margin-top: 10px; display: block;">3. 確認座標與範圍</label>
                     <div style="display: flex; gap: 8px;">
                         <input type="number" id="set-lat" class="admin-input" step="any" placeholder="緯度 Lat">
                         <input type="number" id="set-lng" class="admin-input" step="any" placeholder="經度 Lng">
                     </div>
                     <input type="number" id="set-radius" class="admin-input" placeholder="容許半徑 (公尺, 建議 200)">
                     
-                    <button class="btn" style="width: 100%; margin-top: 15px; font-size: 13px; padding: 12px;" onclick="captureCurrentLocation()">抓取目前位置</button>
-                    <button class="btn" style="width: 100%; margin-top: 8px; font-size: 13px; padding: 12px; background: var(--secondary-color);" onclick="addNewLocation()">新增至列表</button>
+                    <!-- 管理端預覽地圖 -->
+                    <div id="admin-map-preview" class="admin-map-preview">
+                        <iframe id="admin-map-iframe" src=""></iframe>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button class="btn" style="flex: 1; font-size: 13px; padding: 12px;" onclick="captureCurrentLocation()">抓取我目前位置</button>
+                        <button class="btn" style="flex: 1; font-size: 13px; padding: 12px; background: var(--secondary-color);" onclick="addNewLocation()">新增至列表</button>
+                    </div>
                 </div>
 
                 <div class="location-manager-list" id="location-list-ui">
@@ -376,7 +396,7 @@
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
-        <div class="version">ORIGIN CLOUD V3.4 PRO</div>
+        <div class="version">ORIGIN CLOUD V3.5 PRO</div>
         <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
     </div>
 
@@ -492,39 +512,53 @@
             } else { alert("密碼錯誤"); }
         };
 
+        // 更新管理端預覽地圖
+        function updateAdminMapPreview(lat, lng) {
+            const previewBox = document.getElementById('admin-map-preview');
+            const iframe = document.getElementById('admin-map-iframe');
+            if (lat && lng) {
+                iframe.src = `https://maps.google.com/maps?q=${lat},${lng}&hl=zh-TW&z=17&output=embed`;
+                previewBox.style.display = 'block';
+            }
+        }
+
         window.captureCurrentLocation = function() {
             if (userCoords) {
                 document.getElementById('set-lat').value = userCoords.lat;
                 document.getElementById('set-lng').value = userCoords.lng;
                 document.getElementById('set-radius').value = 200;
+                updateAdminMapPreview(userCoords.lat, userCoords.lng);
             } else { alert("定位中，請稍後"); }
         };
 
-        // 新增：地址搜尋經緯度
         window.searchAddress = async function() {
             const address = document.getElementById('search-address').value;
             if (!address) {
-                alert("請輸入要搜尋的地址");
+                alert("請輸入地址");
                 return;
             }
             const statusText = document.getElementById('status');
-            statusText.innerText = "正在搜尋地址...";
+            statusText.innerText = "搜尋地址中...";
             statusText.style.display = "block";
             try {
-                // 使用 Nominatim 開源地理編碼服務 (不需 API Key)
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+                // 移除地址中可能的樓層資訊，Nominatim 對細節太敏感
+                const cleanAddress = address.split(/[樓Ff室]/)[0];
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanAddress)}&limit=1`);
                 const data = await response.json();
                 if (data && data.length > 0) {
-                    document.getElementById('set-lat').value = data[0].lat;
-                    document.getElementById('set-lng').value = data[0].lon;
-                    statusText.innerText = "搜尋成功，已帶入座標";
+                    const lat = data[0].lat;
+                    const lng = data[0].lon;
+                    document.getElementById('set-lat').value = lat;
+                    document.getElementById('set-lng').value = lng;
+                    updateAdminMapPreview(lat, lng);
+                    statusText.innerText = "搜尋成功！請確認下方地圖預覽";
                     setTimeout(() => { if(document.getElementById('admin-page').style.display === 'block') statusText.style.display = 'none'; }, 2000);
                 } else {
-                    alert("找不到該地址，請嘗試更詳細的名稱");
+                    alert("找不到該地址。\n建議：移除樓層或號室資訊，只留路街號碼。");
                     statusText.innerText = "";
                 }
             } catch (e) {
-                alert("地址搜尋出錯，請稍後再試");
+                alert("搜尋服務繁忙，請稍後再試");
                 statusText.innerText = "";
             }
         };
@@ -534,7 +568,7 @@
             const lat = parseFloat(document.getElementById('set-lat').value);
             const lng = parseFloat(document.getElementById('set-lng').value);
             const radius = parseInt(document.getElementById('set-radius').value);
-            if (!remark || isNaN(lat) || isNaN(lng) || isNaN(radius)) { alert("請填寫完整資訊"); return; }
+            if (!remark || isNaN(lat) || isNaN(lng) || isNaN(radius)) { alert("請填寫完整資訊並確認座標"); return; }
             const newLoc = { id: Date.now().toString(), remark, lat, lng, radius };
             officeLocations.push(newLoc);
             try {
@@ -545,6 +579,7 @@
                 document.getElementById('set-lat').value = "";
                 document.getElementById('set-lng').value = "";
                 document.getElementById('set-radius').value = "";
+                document.getElementById('admin-map-preview').style.display = 'none';
                 alert("據點已新增");
             } catch (e) { alert("儲存失敗"); }
         };
@@ -566,29 +601,22 @@
                     <div class="loc-info">
                         <span class="loc-name">${l.remark}</span>
                         <span class="loc-detail">📍 ${parseFloat(l.lat).toFixed(4)}, ${parseFloat(l.lng).toFixed(4)}</span>
-                        <div class="loc-radius-pill">容許範圍 ${l.radius}m</div>
+                        <div class="loc-radius-pill">範圍 ${l.radius}m</div>
                     </div>
                     <span class="btn-loc-del" onclick="deleteLocation('${l.id}')">刪除</span>
                 </div>
             `).join('');
         }
 
-        window.openDeleteModal = function(id) { 
-            pendingDeleteId = id; 
-            document.getElementById('delete-modal').style.display = 'flex'; 
-        };
-        window.closeDeleteModal = function() { 
-            pendingDeleteId = null; 
-            document.getElementById('delete-modal').style.display = 'none'; 
-        };
+        window.openDeleteModal = function(id) { pendingDeleteId = id; document.getElementById('delete-modal').style.display = 'flex'; };
+        window.closeDeleteModal = function() { pendingDeleteId = null; document.getElementById('delete-modal').style.display = 'none'; };
 
         document.getElementById('modal-confirm-btn').onclick = async function() {
             if (!pendingDeleteId) return;
             try {
                 if (!auth.currentUser) await signInAnonymously(auth);
                 await deleteDoc(doc(db, "tenants/Corin_Beauty/checkins", pendingDeleteId));
-                closeDeleteModal();
-                fetchHistory();
+                closeDeleteModal(); fetchHistory();
             } catch (e) { alert("註銷失敗"); }
         };
 
@@ -604,7 +632,6 @@
                 if (!liff.isLoggedIn()) { liff.login(); return; }
                 userProfile = await liff.getProfile();
                 await signInAnonymously(auth);
-                
                 const configSnap = await getDoc(doc(db, "tenants/Corin_Beauty/settings", "config"));
                 if (configSnap.exists()) officeLocations = configSnap.data().locations || [];
 
@@ -625,22 +652,14 @@
 
         window.submitCheckIn = async function(type) {
             if (!userProfile || !userCoords) return;
-            
             let allowClockIn = false;
             let currentOfficeName = "";
-
             if (officeLocations.length > 0) {
                 officeLocations.forEach(loc => {
                     const dist = getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng);
-                    if (dist <= loc.radius) {
-                        allowClockIn = true;
-                        currentOfficeName = loc.remark;
-                    }
+                    if (dist <= loc.radius) { allowClockIn = true; currentOfficeName = loc.remark; }
                 });
-            } else { 
-                allowClockIn = true; 
-                currentOfficeName = "未設據點";
-            }
+            } else { allowClockIn = true; currentOfficeName = "未設據點"; }
 
             if (!allowClockIn) {
                 document.getElementById('status').innerText = `不在打卡範圍內，無法打卡`;
@@ -652,19 +671,13 @@
             document.getElementById('main-map-box').style.display = "none";
             document.getElementById('gps-display').style.display = "none";
             document.getElementById('loader').style.display = "block";
-            
             try {
                 const now = new Date();
                 const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
-                    userId: userProfile.userId, 
-                    userName: userProfile.displayName,
-                    locationName: currentOfficeName, 
-                    lat: userCoords.lat, 
-                    lng: userCoords.lng, 
-                    timestamp: serverTimestamp(), 
-                    type: type, 
-                    client: "V3.4"
+                    userId: userProfile.userId, userName: userProfile.displayName,
+                    locationName: currentOfficeName, lat: userCoords.lat, lng: userCoords.lng, 
+                    timestamp: serverTimestamp(), type: type, client: "V3.5"
                 });
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
@@ -680,8 +693,7 @@
                 const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
                 let records = [];
                 querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    if (data.userId === userProfile.userId) records.push({ ...data, id: doc.id });
+                    const data = doc.data(); if (data.userId === userProfile.userId) records.push({ ...data, id: doc.id });
                 });
                 renderHistoryList(records, listContainer, false);
             } catch (e) { listContainer.innerHTML = '<p>讀取失敗</p>'; }
