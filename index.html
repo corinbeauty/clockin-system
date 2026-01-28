@@ -137,16 +137,18 @@
         .history-list::-webkit-scrollbar { width: 4px; }
         .history-list::-webkit-scrollbar-thumb { background: #eee; border-radius: 10px; }
 
+        /* 紀錄卡片 - 修正為直向佈局 */
         .history-item {
             background: #ffffff;
             padding: 15px;
             border-radius: 20px;
             margin-bottom: 12px;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column; /* 改回直的 */
+            align-items: flex-start;
             border: 1px solid #f1f4f8;
             box-shadow: 0 4px 10px rgba(0,0,0,0.01);
+            position: relative;
         }
         
         .history-item.in { border-left: 6px solid var(--primary-color); background: var(--primary-light); }
@@ -166,12 +168,20 @@
             font-weight: 800;
         }
 
-        .item-info { display: flex; flex-direction: column; text-align: left; }
+        .item-info { display: flex; flex-direction: column; text-align: left; width: 100%; }
         .item-type { font-size: 14px; font-weight: 800; color: #2d3436; }
         .item-date { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
-        .item-time { font-size: 18px; font-weight: 900; color: #2d3436; }
+        
+        /* 紀錄卡片中的時間與按鈕區域 */
+        .item-time-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .item-time { font-size: 20px; font-weight: 900; color: #2d3436; }
 
-        /* 打卡地點名稱樣式 */
         .item-loc-name {
             font-size: 10px;
             color: var(--primary-color);
@@ -187,13 +197,13 @@
             color: var(--error-color);
             background: #fff;
             border: 1px solid var(--error-color);
-            padding: 3px 8px;
-            border-radius: 6px;
+            padding: 4px 10px;
+            border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
-            display: inline-block;
-            margin-top: 8px;
+            transition: 0.2s;
         }
+        .btn-delete:active { background: var(--error-color); color: #fff; }
 
         .admin-header-ui {
             background: linear-gradient(135deg, var(--primary-color), #00d2ff);
@@ -585,13 +595,7 @@
 
             if (officeLocations.length > 0) {
                 officeLocations.forEach(loc => {
-                    const R = 6371e3;
-                    const lat1 = userCoords.lat * Math.PI/180; 
-                    const lat2 = loc.lat * Math.PI/180;
-                    const dLat = (loc.lat - userCoords.lat) * Math.PI/180;
-                    const dLng = (loc.lng - userCoords.lng) * Math.PI/180;
-                    const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
-                    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    const dist = getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng);
                     if (dist <= loc.radius) {
                         allowClockIn = true;
                         currentOfficeName = loc.remark;
@@ -619,7 +623,7 @@
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId, 
                     userName: userProfile.displayName,
-                    locationName: currentOfficeName, // 儲存據點名稱
+                    locationName: currentOfficeName, 
                     lat: userCoords.lat, 
                     lng: userCoords.lng, 
                     timestamp: serverTimestamp(), 
@@ -697,12 +701,11 @@
                                 ${isAdmin ? `<span class="item-user">${rec.userName}</span>` : ''}
                                 <span class="item-type">${rec.type}</span>
                                 <span class="item-date">${g.date}</span>
-                                <!-- 直接顯示據點名稱，移除地圖按鈕 -->
                                 <div class="item-loc-name">📍 ${rec.locationName || '未知據點'}</div>
                             </div>
-                            <div class="item-time">
-                                <div>${timeStr}</div>
-                                ${!isAdmin ? `<div style="text-align:right;"><button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷</button></div>` : ''}
+                            <div class="item-time-row">
+                                <div class="item-time">${timeStr}</div>
+                                ${!isAdmin ? `<button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷</button>` : ''}
                             </div>
                         </div>
                     `;
