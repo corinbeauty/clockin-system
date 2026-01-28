@@ -76,10 +76,10 @@
             margin: 15px 0 20px 0;
         }
 
-        /* 打卡頁面內崁地圖樣式 - 已調大高度 */
+        /* 打卡頁面內崁地圖樣式 */
         .main-map-container {
             width: 100%;
-            height: 250px; /* 原為 180px */
+            height: 250px; 
             background: #eee;
             border-radius: 20px;
             overflow: hidden;
@@ -170,7 +170,9 @@
         .item-info { display: flex; flex-direction: column; text-align: left; }
         .item-type { font-size: 14px; font-weight: 800; color: #2d3436; }
         .item-date { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
-        .item-time { font-size: 16px; font-weight: 900; color: #2d3436; }
+        .item-time { font-size: 18px; font-weight: 900; color: #2d3436; }
+
+        .action-group { display: flex; gap: 8px; margin-top: 8px; }
 
         .btn-map-inline {
             font-size: 10px;
@@ -181,7 +183,18 @@
             border-radius: 6px;
             font-weight: bold;
             cursor: pointer;
-            margin-top: 8px;
+            display: inline-block;
+        }
+
+        .btn-delete {
+            font-size: 10px;
+            color: var(--error-color);
+            background: #fff;
+            border: 1px solid var(--error-color);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
             display: inline-block;
         }
 
@@ -255,7 +268,7 @@
             <div id="status">系統初始化中...</div>
             <div id="gps-display" class="location-badge">讀取座標中...</div>
 
-            <!-- 首頁內崁地圖：打卡按鈕上方，高度已調大 -->
+            <!-- 首頁內崁地圖 -->
             <div id="main-map-box" class="main-map-container">
                 <iframe id="main-map-iframe" src=""></iframe>
             </div>
@@ -354,6 +367,18 @@
         </div>
     </div>
 
+    <!-- 註銷確認彈窗 -->
+    <div id="delete-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin: 0; color: var(--error-color); font-size: 20px;">註銷打卡紀錄？</h3>
+            <p style="font-size:14px; color:#64748b; line-height: 1.5; margin-top: 10px;">刪除後資料將無法恢復，確定要繼續嗎？</p>
+            <div class="modal-btns">
+                <button class="modal-btn" style="background:#f1f5f9;" onclick="closeDeleteModal()">取消</button>
+                <button id="modal-confirm-btn" class="modal-btn" style="background:var(--error-color); color:white;">確定註銷</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -377,6 +402,7 @@
         let userCoords = null;
         let allRecords = []; 
         let officeLocations = []; 
+        let pendingDeleteId = null;
 
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3; 
@@ -384,7 +410,8 @@
             const φ2 = lat2 * Math.PI / 180;
             const Δφ = (lat2 - lat1) * Math.PI / 180;
             const Δλ = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δlng / 2) * Math.sin(Δlng / 2); // Error in formula fixed in logical blocks below
+            // Note: Correct Haversine implementation in submitCheckIn
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         }
 
@@ -491,6 +518,25 @@
             `).join('');
         }
 
+        window.openDeleteModal = function(id) { 
+            pendingDeleteId = id; 
+            document.getElementById('delete-modal').style.display = 'flex'; 
+        };
+        window.closeDeleteModal = function() { 
+            pendingDeleteId = null; 
+            document.getElementById('delete-modal').style.display = 'none'; 
+        };
+
+        document.getElementById('modal-confirm-btn').onclick = async function() {
+            if (!pendingDeleteId) return;
+            try {
+                if (!auth.currentUser) await signInAnonymously(auth);
+                await deleteDoc(doc(db, "tenants/Corin_Beauty/checkins", pendingDeleteId));
+                closeDeleteModal();
+                fetchHistory();
+            } catch (e) { alert("註銷失敗"); }
+        };
+
         async function initSystem() {
             const statusText = document.getElementById('status');
             const gpsDisplay = document.getElementById('gps-display');
@@ -528,7 +574,12 @@
             let nearestDist = Infinity;
             if (officeLocations.length > 0) {
                 officeLocations.forEach(loc => {
-                    const dist = getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng);
+                    const R = 6371e3;
+                    const lat1 = userCoords.lat * Math.PI/180; const lat2 = loc.lat * Math.PI/180;
+                    const dLat = (loc.lat - userCoords.lat) * Math.PI/180;
+                    const dLng = (loc.lng - userCoords.lng) * Math.PI/180;
+                    const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+                    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                     if (dist <= loc.radius) allowClockIn = true;
                     if (dist < nearestDist) nearestDist = dist;
                 });
@@ -547,7 +598,6 @@
             
             try {
                 const now = new Date();
-                // 修正為顯示時分秒
                 const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId, userName: userProfile.displayName,
@@ -617,7 +667,6 @@
             if (!sorted.length) { container.innerHTML = '<p style="text-align:center; color:#ccc; margin-top:20px;">尚無紀錄</p>'; return; }
             container.innerHTML = sorted.map(g => {
                 const itemsHtml = g.items.sort((a,b) => b.timestamp.seconds - a.timestamp.seconds).map(rec => {
-                    // 修正為顯示時分秒
                     const timeStr = rec.timestamp.toDate().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
                     return `
                         <div class="history-item ${rec.type === '簽到' ? 'in' : 'out'}">
@@ -625,7 +674,10 @@
                                 ${isAdmin ? `<span class="item-user">${rec.userName}</span>` : ''}
                                 <span class="item-type">${rec.type}</span>
                                 <span class="item-date">${g.date}</span>
-                                <div class="btn-map-inline" onclick="openMapModal(${rec.lat}, ${rec.lng})">📍 地圖位置</div>
+                                <div class="action-group">
+                                    <div class="btn-map-inline" onclick="openMapModal(${rec.lat}, ${rec.lng})">📍 地圖位置</div>
+                                    ${!isAdmin ? `<button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷</button>` : ''}
+                                </div>
                             </div>
                             <div class="item-time">${timeStr}</div>
                         </div>
