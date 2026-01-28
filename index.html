@@ -361,16 +361,16 @@
             <!-- 地點設定 Tab -->
             <div id="admin-tab-settings-content" style="display:none;">
                 <div class="controls-box" style="text-align: left; padding: 15px;">
-                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color);">1. 設定名稱</label>
-                    <input type="text" id="set-remark" class="admin-input" placeholder="據點名稱 (如: 台北旗艦店)">
+                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color);">1. 設定據點名稱</label>
+                    <input type="text" id="set-remark" class="admin-input" placeholder="例如: 台中旗艦店">
                     
-                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color); margin-top: 10px; display: block;">2. 地址搜尋定位 (建議移除樓層細節)</label>
+                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color); margin-top: 10px; display: block;">2. 地址搜尋自動定位</label>
                     <div style="display: flex; gap: 8px;">
-                        <input type="text" id="search-address" class="admin-input" placeholder="輸入地址 (例如: 台北市忠孝東路三段1號)">
+                        <input type="text" id="search-address" class="admin-input" placeholder="請輸入地址 (建議移除樓層細節)">
                         <button class="btn" style="width: auto; margin-top: 8px; font-size: 13px; padding: 0 15px;" onclick="searchAddress()">搜尋</button>
                     </div>
 
-                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color); margin-top: 10px; display: block;">3. 確認座標與範圍</label>
+                    <label style="font-size: 11px; font-weight: bold; color: var(--primary-color); margin-top: 10px; display: block;">3. 檢視座標與調整範圍</label>
                     <div style="display: flex; gap: 8px;">
                         <input type="number" id="set-lat" class="admin-input" step="any" placeholder="緯度 Lat">
                         <input type="number" id="set-lng" class="admin-input" step="any" placeholder="經度 Lng">
@@ -396,7 +396,7 @@
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
-        <div class="version">ORIGIN CLOUD V3.5 PRO</div>
+        <div class="version">ORIGIN CLOUD V3.6 PRO</div>
         <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
     </div>
 
@@ -531,34 +531,54 @@
             } else { alert("定位中，請稍後"); }
         };
 
+        // 加強型地址搜尋功能
         window.searchAddress = async function() {
-            const address = document.getElementById('search-address').value;
-            if (!address) {
+            const addressInput = document.getElementById('search-address').value.trim();
+            if (!addressInput) {
                 alert("請輸入地址");
                 return;
             }
             const statusText = document.getElementById('status');
-            statusText.innerText = "搜尋地址中...";
+            statusText.innerText = "正在精確定位地址...";
             statusText.style.display = "block";
             try {
-                // 移除地址中可能的樓層資訊，Nominatim 對細節太敏感
-                const cleanAddress = address.split(/[樓Ff室]/)[0];
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanAddress)}&limit=1`);
+                // 1. 移除地址中可能的樓層或室資訊（搜尋引擎對這些細節較敏感）
+                let cleanAddress = addressInput.split(/[樓Ff室]/)[0];
+                
+                // 確保包含「台灣」並強制限制在台灣區域進行搜尋
+                const searchQuery = cleanAddress.includes("台灣") ? cleanAddress : "台灣 " + cleanAddress;
+                
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=tw&limit=1`);
                 const data = await response.json();
+                
                 if (data && data.length > 0) {
                     const lat = data[0].lat;
                     const lng = data[0].lon;
                     document.getElementById('set-lat').value = lat;
                     document.getElementById('set-lng').value = lng;
                     updateAdminMapPreview(lat, lng);
-                    statusText.innerText = "搜尋成功！請確認下方地圖預覽";
-                    setTimeout(() => { if(document.getElementById('admin-page').style.display === 'block') statusText.style.display = 'none'; }, 2000);
+                    statusText.innerText = "搜尋成功！地圖已標註位置";
+                    setTimeout(() => { if(document.getElementById('admin-page').style.display === 'block') statusText.style.display = 'none'; }, 2500);
                 } else {
-                    alert("找不到該地址。\n建議：移除樓層或號室資訊，只留路街號碼。");
-                    statusText.innerText = "";
+                    // 若搜尋不到，嘗試更廣泛的搜尋方式：移除行政區名稱（有時行政區定義有差異）
+                    const widerSearch = cleanAddress.replace(/..區/, "");
+                    const response2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent("台灣 " + widerSearch)}&countrycodes=tw&limit=1`);
+                    const data2 = await response2.json();
+                    
+                    if (data2 && data2.length > 0) {
+                        const lat = data2[0].lat;
+                        const lng = data2[0].lon;
+                        document.getElementById('set-lat').value = lat;
+                        document.getElementById('set-lng').value = lng;
+                        updateAdminMapPreview(lat, lng);
+                        statusText.innerText = "搜尋成功 (模糊匹配)！";
+                    } else {
+                        alert("搜尋不到該地址。\n\n提示：\n1. 請移除樓層與室號 (例如：5樓、A室)。\n2. 確保地址包含縣市路名。\n3. 或直接點擊「抓取目前位置」。");
+                        statusText.innerText = "";
+                    }
                 }
             } catch (e) {
-                alert("搜尋服務繁忙，請稍後再試");
+                alert("地址搜尋服務目前不可用，請手動輸入座標。");
                 statusText.innerText = "";
             }
         };
@@ -677,7 +697,7 @@
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId, userName: userProfile.displayName,
                     locationName: currentOfficeName, lat: userCoords.lat, lng: userCoords.lng, 
-                    timestamp: serverTimestamp(), type: type, client: "V3.5"
+                    timestamp: serverTimestamp(), type: type, client: "V3.6"
                 });
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
