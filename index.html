@@ -7,15 +7,19 @@
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         :root { 
-            --primary-color: #00ffcc; 
-            --bg-color: #121212; 
-            --card-bg: #1e1e1e; 
-            --text-main: #ffffff;
-            --text-dim: #888888;
-            --error-color: #ff4d4d;
+            --primary-color: #00bfa5; /* 質感翠綠 */
+            --primary-light: #e0f2f1;
+            --secondary-color: #ff8f00; /* 暖橘色用於簽退 */
+            --secondary-light: #fff8e1;
+            --bg-color: #f7f9fc; /* 淺灰背景 */
+            --card-bg: #ffffff; 
+            --text-main: #2c3e50;
+            --text-dim: #7f8c8d;
+            --error-color: #e74c3c;
+            --shadow: 0 10px 30px rgba(0,0,0,0.08);
         }
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
             display: flex; 
             justify-content: center; 
             align-items: center; 
@@ -26,106 +30,146 @@
         }
         .card { 
             background: var(--card-bg); 
-            padding: 30px; 
-            border-radius: 24px; 
-            box-shadow: 0 15px 35px rgba(0,0,0,0.6); 
+            padding: 35px 25px; 
+            border-radius: 28px; 
+            box-shadow: var(--shadow); 
             text-align: center; 
-            width: 85%; 
-            max-width: 360px; 
-            border: 1px solid #333;
+            width: 88%; 
+            max-width: 380px; 
             transition: all 0.3s ease;
             position: relative;
         }
         .brand { 
-            font-size: 24px; 
+            font-size: 26px; 
             font-weight: 800; 
-            margin-bottom: 10px; 
-            letter-spacing: 3px; 
+            margin-bottom: 8px; 
+            letter-spacing: 4px; 
             color: var(--primary-color);
             text-transform: uppercase;
         }
         
         /* 載入動畫 */
         .loader { 
-            border: 3px solid #333; 
-            border-top: 3px solid var(--primary-color); 
+            border: 4px solid #f3f3f3; 
+            border-top: 4px solid var(--primary-color); 
             border-radius: 50%; 
-            width: 50px; 
-            height: 50px; 
-            animation: spin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite; 
+            width: 45px; 
+            height: 45px; 
+            animation: spin 1s linear infinite; 
             margin: 30px auto; 
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         /* 按鈕區域 */
         .button-group {
-            display: none; /* 定位成功後顯示 */
+            display: none;
             flex-direction: column;
-            gap: 15px;
-            margin: 25px 0;
+            gap: 18px;
+            margin: 30px 0;
         }
         .btn {
-            padding: 14px;
-            border-radius: 12px;
-            border: 2px solid var(--primary-color);
-            background: transparent;
-            color: var(--primary-color);
-            font-size: 16px;
-            font-weight: bold;
+            padding: 16px;
+            border-radius: 16px;
+            border: none;
+            background: var(--primary-color);
+            color: white;
+            font-size: 17px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0, 191, 165, 0.2);
             outline: none;
         }
         .btn:active {
-            background: var(--primary-color);
-            color: var(--bg-color);
-            transform: scale(0.95);
+            transform: scale(0.97);
+            box-shadow: 0 2px 6px rgba(0, 191, 165, 0.2);
+        }
+        .btn-out {
+            background: #ffffff;
+            color: var(--text-dim);
+            border: 1.5px solid #dcdde1;
+            box-shadow: none;
+        }
+        .btn-out:active {
+            background: #f5f6fa;
+            transform: scale(0.97);
         }
         .btn-history {
             border: none;
-            color: var(--text-dim);
+            color: var(--primary-color);
             font-size: 14px;
-            text-decoration: underline;
+            font-weight: 500;
+            text-decoration: none;
             background: none;
             margin-top: 15px;
             cursor: pointer;
             display: inline-block;
+            opacity: 0.8;
         }
+        .btn-history:hover { opacity: 1; }
 
         /* 紀錄頁面樣式 */
         #history-page {
             display: none;
             text-align: left;
         }
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
         .history-list {
-            max-height: 300px;
+            max-height: 350px;
             overflow-y: auto;
-            margin-top: 15px;
-            padding-right: 5px;
+            padding-right: 8px;
         }
+        /* 滾動條美化 */
+        .history-list::-webkit-scrollbar { width: 4px; }
+        .history-list::-webkit-scrollbar-track { background: #f1f1f1; }
+        .history-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+
         .history-item {
-            background: #2a2a2a;
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 10px;
-            border-left: 4px solid var(--primary-color);
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #edf2f7;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            transition: transform 0.2s;
         }
+        .history-item:hover { transform: translateY(-2px); }
+        
+        /* 簽到標記 */
+        .history-item.in {
+            border-left: 5px solid var(--primary-color);
+            background: var(--primary-light);
+        }
+        /* 簽退標記 */
         .history-item.out {
-            border-left-color: #888;
+            border-left: 5px solid var(--secondary-color);
+            background: var(--secondary-light);
         }
-        .item-time { font-size: 14px; font-weight: bold; margin-bottom: 4px; }
-        .item-date { font-size: 12px; color: var(--text-dim); }
+
+        .item-info { display: flex; flex-direction: column; }
+        .item-type { font-size: 15px; font-weight: 700; color: #2d3436; }
+        .item-date { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+        .item-time { font-size: 16px; font-weight: 800; color: #2d3436; }
 
         .success-icon { 
             color: var(--primary-color); 
-            font-size: 50px; 
+            font-size: 55px; 
             display: none; 
             margin: 20px 0;
-            animation: scaleUp 0.4s ease-out;
+            animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
-        @keyframes scaleUp {
-            0% { transform: scale(0); }
-            80% { transform: scale(1.2); }
+        @keyframes bounceIn {
+            0% { opacity: 0; transform: scale(0.3); }
+            50% { opacity: 1; transform: scale(1.05); }
+            70% { transform: scale(0.9); }
             100% { transform: scale(1); }
         }
 
@@ -134,12 +178,14 @@
             color: var(--text-dim); 
             margin-top: 15px; 
             line-height: 1.6;
+            font-weight: 500;
         }
         .version {
-            margin-top: 20px;
-            font-size: 10px;
-            color: #444;
-            letter-spacing: 1px;
+            margin-top: 25px;
+            font-size: 11px;
+            color: #bdc3c7;
+            letter-spacing: 2px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -153,33 +199,34 @@
             
             <div id="btn-container" class="button-group">
                 <button class="btn" onclick="submitCheckIn('簽到')">簽到上班</button>
-                <button class="btn" style="border-color: #888; color: #888;" onclick="submitCheckIn('簽退')">簽退下班</button>
+                <button class="btn btn-out" onclick="submitCheckIn('簽退')">簽退下班</button>
             </div>
 
             <div id="success" class="success-icon">✔</div>
             
-            <!-- 將紀錄按鈕移出隱藏區，讓使用者隨時可點擊 -->
             <button id="nav-history-btn" class="btn-history" onclick="showView('history')">查看我的紀錄</button>
         </div>
 
         <!-- 分頁：紀錄區 -->
         <div id="history-page">
-            <h3 style="margin: 0; color: var(--primary-color);">最近打卡紀錄</h3>
-            <div id="history-list" class="history-list">
-                <p style="text-align: center; color: #555;">載入中...</p>
+            <div class="history-header">
+                <h3 style="margin: 0; font-size: 18px;">最近紀錄</h3>
+                <span style="font-size: 12px; color: var(--text-dim);">個人考勤專區</span>
             </div>
-            <button class="btn-history" style="width: 100%; margin-top: 20px; text-align: center;" onclick="showView('clock')">返回打卡頁面</button>
+            <div id="history-list" class="history-list">
+                <p style="text-align: center; color: #bdc3c7; font-size: 14px; margin-top: 30px;">載入中...</p>
+            </div>
+            <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; text-decoration: none; font-weight: bold;" onclick="showView('clock')">← 返回打卡頁面</button>
         </div>
         
         <p id="status">正在取得地理原點...</p>
-        <div class="version">ORIGIN CLOUD V2.3 PRO</div>
+        <div class="version">ORIGIN CLOUD V2.4</div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyC1CUSE-tou-H_BxfEGg4mxA30HsGF8DWE",
             authDomain: "origin-cloud-clockin.firebaseapp.com",
@@ -196,7 +243,6 @@
         let userProfile = null;
         let userCoords = null;
 
-        // 畫面切換邏輯
         window.showView = function(view) {
             const clockPage = document.getElementById('clock-page');
             const historyPage = document.getElementById('history-page');
@@ -205,11 +251,12 @@
             if (view === 'history') {
                 clockPage.style.display = 'none';
                 historyPage.style.display = 'block';
-                status.innerText = "僅顯示您的個人紀錄";
+                status.style.display = 'none';
                 fetchHistory();
             } else {
                 clockPage.style.display = 'block';
                 historyPage.style.display = 'none';
+                status.style.display = 'block';
                 status.innerText = userCoords ? "定位完成，請選擇打卡類型" : "正在取得地理原點...";
             }
         };
@@ -217,42 +264,27 @@
         async function initSystem() {
             try {
                 await liff.init({ liffId: "2008997688-9iB69K6M" });
-                
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                    return;
-                }
-
+                if (!liff.isLoggedIn()) { liff.login(); return; }
                 userProfile = await liff.getProfile();
                 
-                // 進入頁面後，即便還沒定位成功，只要有 Profile 就可以查看紀錄
-                
                 navigator.geolocation.getCurrentPosition(async (pos) => {
-                    userCoords = {
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude
-                    };
-
+                    userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                     document.getElementById('loader').style.display = "none";
                     document.getElementById('btn-container').style.display = "flex";
                     document.getElementById('status').innerText = "定位完成，請選擇打卡類型";
-
                 }, (err) => {
                     document.getElementById('loader').style.display = "none";
                     document.getElementById('status').innerText = "定位失敗，請確認 GPS 已開啟";
                     document.getElementById('status').style.color = "var(--error-color)";
                 }, { enableHighAccuracy: true, timeout: 8000 });
-
             } catch (err) {
                 console.error(err);
                 document.getElementById('status').innerText = "系統連線中斷";
             }
         }
 
-        // 提交打卡
         window.submitCheckIn = async function(type) {
             if (!userProfile || !userCoords) return;
-
             document.getElementById('btn-container').style.display = "none";
             document.getElementById('nav-history-btn').style.display = "none";
             document.getElementById('loader').style.display = "block";
@@ -261,7 +293,6 @@
             try {
                 const now = new Date();
                 const timeString = now.toLocaleTimeString('zh-TW', { hour12: false });
-
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId,
                     userName: userProfile.displayName,
@@ -269,16 +300,13 @@
                     lng: userCoords.lng,
                     timestamp: serverTimestamp(),
                     type: type,
-                    client: "Origin-Cloud-V2.3"
+                    client: "Origin-Cloud-V2.4"
                 });
-
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
-                document.getElementById('status').innerText = `[${timeString}] ${type}成功！\n系統即將自動關閉`;
+                document.getElementById('status').innerText = `[${timeString}] ${type}成功！`;
                 document.getElementById('status').style.color = "var(--primary-color)";
-                
-                setTimeout(() => liff.closeWindow(), 3500);
-
+                setTimeout(() => liff.closeWindow(), 3000);
             } catch (e) {
                 console.error(e);
                 document.getElementById('loader').style.display = "none";
@@ -289,50 +317,41 @@
             }
         };
 
-        // 讀取歷史紀錄
         async function fetchHistory() {
             const listContainer = document.getElementById('history-list');
-            listContainer.innerHTML = '<p style="text-align: center; color: #555;">載入紀錄中...</p>';
-
-            if (!userProfile) {
-                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">身分驗證中，請稍候...</p>';
-                return;
-            }
+            if (!userProfile) return;
 
             try {
                 const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
-                
                 let records = [];
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
-                    if (data.userId === userProfile.userId) {
-                        records.push(data);
-                    }
+                    if (data.userId === userProfile.userId) records.push(data);
                 });
-
                 records.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
 
                 if (records.length === 0) {
-                    listContainer.innerHTML = '<p style="text-align: center; color: #555;">尚無打卡紀錄</p>';
+                    listContainer.innerHTML = '<p style="text-align: center; color: #bdc3c7; margin-top: 30px;">尚無紀錄</p>';
                     return;
                 }
 
                 listContainer.innerHTML = records.map(rec => {
                     const dateObj = rec.timestamp ? rec.timestamp.toDate() : new Date();
                     const dateStr = dateObj.toLocaleDateString('zh-TW');
-                    const timeStr = dateObj.toLocaleTimeString('zh-TW', { hour12: false });
-                    const isOut = rec.type === '簽退';
+                    const timeStr = dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    const isIn = rec.type === '簽到';
                     
                     return `
-                        <div class="history-item ${isOut ? 'out' : ''}">
-                            <div class="item-time">${rec.type}：${timeStr}</div>
-                            <div class="item-date">${dateStr}</div>
+                        <div class="history-item ${isIn ? 'in' : 'out'}">
+                            <div class="item-info">
+                                <span class="item-type">${rec.type}</span>
+                                <span class="item-date">${dateStr}</span>
+                            </div>
+                            <div class="item-time">${timeStr}</div>
                         </div>
                     `;
                 }).join('');
-
             } catch (e) {
-                console.error(e);
                 listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">讀取失敗</p>';
             }
         }
