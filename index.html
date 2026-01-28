@@ -12,6 +12,7 @@
             --card-bg: #1e1e1e; 
             --text-main: #ffffff;
             --text-dim: #888888;
+            --error-color: #ff4d4d;
         }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
@@ -42,6 +43,8 @@
             color: var(--primary-color);
             text-transform: uppercase;
         }
+        
+        /* 載入動畫 */
         .loader { 
             border: 3px solid #333; 
             border-top: 3px solid var(--primary-color); 
@@ -53,6 +56,39 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
+        /* 按鈕區域 */
+        .button-group {
+            display: none; /* 初始隱藏，定位成功後顯示 */
+            flex-direction: column;
+            gap: 15px;
+            margin: 30px 0;
+        }
+        .btn {
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid var(--primary-color);
+            background: transparent;
+            color: var(--primary-color);
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            outline: none;
+        }
+        .btn:active {
+            background: var(--primary-color);
+            color: var(--bg-color);
+            transform: scale(0.95);
+        }
+        .btn-out {
+            border-color: #888;
+            color: #888;
+        }
+        .btn-out:active {
+            background: #888;
+            color: var(--bg-color);
+        }
+
         .success-icon { 
             color: var(--primary-color); 
             font-size: 64px; 
@@ -85,17 +121,28 @@
 <body>
     <div class="card">
         <div class="brand">原點雲</div>
+        
+        <!-- 讀取中狀態 -->
         <div id="loader" class="loader"></div>
+        
+        <!-- 按鈕選單 -->
+        <div id="btn-container" class="button-group">
+            <button class="btn" onclick="submitCheckIn('簽到')">簽到上班</button>
+            <button class="btn btn-out" onclick="submitCheckIn('簽退')">簽退下班</button>
+        </div>
+
+        <!-- 成功狀態 -->
         <div id="success" class="success-icon">✔</div>
+        
         <p id="status">正在取得地理原點...</p>
     </div>
-    <div class="version">ORIGIN CLOUD V2.1 PRO</div>
+    <div class="version">ORIGIN CLOUD V2.2 PRO</div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // Firebase 配置 [cite: User Input]
+        // Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyC1CUSE-tou-H_BxfEGg4mxA30HsGF8DWE",
             authDomain: "origin-cloud-clockin.firebaseapp.com",
@@ -109,7 +156,10 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        async function startOriginClock() {
+        let userProfile = null;
+        let userCoords = null;
+
+        async function initSystem() {
             try {
                 // 初始化 LIFF
                 await liff.init({ liffId: "2008997688-9iB69K6M" });
@@ -119,35 +169,24 @@
                     return;
                 }
 
-                const profile = await liff.getProfile();
+                userProfile = await liff.getProfile();
                 
                 // 執行定位
                 navigator.geolocation.getCurrentPosition(async (pos) => {
-                    const { latitude, longitude } = pos.coords;
+                    userCoords = {
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude
+                    };
 
-                    // 寫入 Firebase
-                    await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
-                        userId: profile.userId,
-                        userName: profile.displayName,
-                        lat: latitude,
-                        lng: longitude,
-                        timestamp: serverTimestamp(),
-                        client: "Origin-Cloud-Production"
-                    });
-
-                    // UI 更新成功狀態
+                    // 定位成功後，隱藏讀取條，顯示按鈕
                     document.getElementById('loader').style.display = "none";
-                    document.getElementById('success').style.display = "block";
-                    document.getElementById('status').innerText = "打卡成功！\n祝您有美好的一天";
-                    document.getElementById('status').style.color = "#00ffcc";
-                    
-                    // 自動關閉視窗
-                    setTimeout(() => liff.closeWindow(), 2000);
+                    document.getElementById('btn-container').style.display = "flex";
+                    document.getElementById('status').innerText = "定位完成，請選擇打卡類型";
 
                 }, (err) => {
                     document.getElementById('loader').style.display = "none";
-                    document.getElementById('status').innerText = "定位失敗\n請確認 GPS 權限已開啟";
-                    document.getElementById('status').style.color = "#ff4d4d";
+                    document.getElementById('status').innerText = "定位失敗\n請確認手機 GPS 權限已開啟";
+                    document.getElementById('status').style.color = "var(--error-color)";
                 }, { 
                     enableHighAccuracy: true, 
                     timeout: 8000 
@@ -159,7 +198,45 @@
             }
         }
 
-        window.onload = startOriginClock;
+        // 提交打卡紀錄
+        window.submitCheckIn = async function(type) {
+            if (!userProfile || !userCoords) return;
+
+            // 顯示處理中狀態
+            document.getElementById('btn-container').style.display = "none";
+            document.getElementById('loader').style.display = "block";
+            document.getElementById('status').innerText = `正在提交${type}紀錄...`;
+
+            try {
+                // 寫入 Firebase
+                await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
+                    userId: userProfile.userId,
+                    userName: userProfile.displayName,
+                    lat: userCoords.lat,
+                    lng: userCoords.lng,
+                    timestamp: serverTimestamp(),
+                    type: type, // '簽到' 或 '簽退'
+                    client: "Origin-Cloud-Manual"
+                });
+
+                // 成功反饋
+                document.getElementById('loader').style.display = "none";
+                document.getElementById('success').style.display = "block";
+                document.getElementById('status').innerText = `${type}成功！\n系統即將關閉`;
+                document.getElementById('status').style.color = "var(--primary-color)";
+                
+                setTimeout(() => liff.closeWindow(), 2000);
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById('loader').style.display = "none";
+                document.getElementById('btn-container').style.display = "flex";
+                document.getElementById('status').innerText = "寫入資料庫失敗，請重試";
+                document.getElementById('status').style.color = "var(--error-color)";
+            }
+        };
+
+        window.onload = initSystem;
     </script>
 </body>
 </html>
