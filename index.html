@@ -380,7 +380,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -452,13 +452,18 @@
         document.getElementById('modal-confirm-btn').onclick = async function() {
             if (!pendingDeleteId) return;
             try {
-                if (!auth.currentUser) await signInAnonymously(auth);
+                // 註銷前強制檢查連線
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+                
                 await deleteDoc(doc(db, "tenants/Corin_Beauty/checkins", pendingDeleteId));
                 closeDeleteModal();
-                fetchHistory();
+                fetchHistory(); // 重新整理
             } catch (e) {
                 console.error("註銷失敗", e);
-                alert("註銷失敗：" + (e.code || e.message));
+                // 顯示精確的 Firebase 錯誤代碼
+                alert("註銷失敗：" + (e.code || "unknown") + "\n原因：" + e.message);
             }
         };
 
@@ -474,7 +479,10 @@
                 
                 userProfile = await liff.getProfile().catch(e => { throw new Error("取得 LINE 個人資料失敗: " + e.message); });
                 
-                // Step 2: Firebase Auth
+                // Step 2: Firebase Auth & State Watch
+                onAuthStateChanged(auth, (user) => {
+                    if (user) console.log("Firebase 驗證成功:", user.uid);
+                });
                 await signInAnonymously(auth).catch(e => { throw new Error("資料庫連線驗證失敗: " + e.message); });
                 
                 // Step 3: Geolocation
