@@ -55,12 +55,9 @@
             text-transform: uppercase;
         }
         
-        /* 管理模式專屬介面優化 */
         .admin-active .brand { display: none; }
         .admin-active .card { padding-top: 20px; border: 1px solid var(--primary-light); }
-        .admin-active { background-color: #ffffff; }
 
-        /* 載入動畫 */
         .loader { 
             border: 4px solid #f3f3f3; 
             border-top: 4px solid var(--primary-color); 
@@ -76,7 +73,21 @@
             display: none;
             flex-direction: column;
             gap: 18px;
-            margin: 30px 0;
+            margin: 20px 0 30px 0;
+        }
+
+        /* GPS 位置顯示樣式 */
+        .location-badge {
+            display: none;
+            background: var(--primary-light);
+            color: var(--primary-color);
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            margin: 10px auto;
+            border: 1px solid rgba(0, 191, 165, 0.2);
+            width: fit-content;
         }
 
         .btn {
@@ -112,12 +123,10 @@
             margin-top: 15px;
             cursor: pointer;
             display: inline-block;
-            transition: 0.2s;
         }
 
-        /* 紀錄區域 */
         .history-list {
-            max-height: 420px;
+            max-height: 400px;
             overflow-y: auto;
             padding-right: 4px;
             margin-top: 10px;
@@ -171,7 +180,6 @@
             font-weight: bold;
         }
 
-        /* 管理員介面美化 */
         .admin-header-ui {
             background: linear-gradient(135deg, var(--primary-color), #00d2ff);
             margin: -20px -25px 20px -25px;
@@ -180,30 +188,44 @@
             text-align: left;
         }
         .admin-header-ui h2 { margin: 0; font-size: 20px; letter-spacing: 1px; }
-        .admin-header-ui p { margin: 5px 0 0 0; font-size: 11px; opacity: 0.8; }
 
         .controls-box {
             background: #f8fafc;
             padding: 20px;
             border-radius: 24px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             border: 1px solid #edf2f7;
         }
-        .admin-select {
+        
+        .admin-select, .admin-input {
             width: 100%;
             padding: 14px;
             border-radius: 14px;
             border: 1px solid #e2e8f0;
             margin-top: 8px;
-            font-size: 15px;
+            font-size: 14px;
             background: white;
-            color: var(--text-main);
             font-weight: 600;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23718096' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 18px;
+        }
+
+        .admin-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 8px;
+            font-size: 12px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            cursor: pointer;
+        }
+        .tab-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
         }
 
         .stats-box {
@@ -217,15 +239,11 @@
             padding: 15px 10px;
             border-radius: 16px;
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
             border: 1px solid #f1f5f9;
         }
-        .stat-card span { display: block; font-size: 10px; color: var(--text-dim); font-weight: bold; margin-bottom: 4px; }
-        .stat-card b { font-size: 20px; color: var(--text-main); }
-        .stat-card.in b { color: var(--primary-color); }
-        .stat-card.out b { color: var(--secondary-color); }
+        .stat-card span { display: block; font-size: 10px; color: var(--text-dim); font-weight: bold; }
+        .stat-card b { font-size: 20px; }
 
-        /* 彈窗共通樣式 */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -268,7 +286,7 @@
             bottom: 12px;
             right: 25px;
             font-size: 10px;
-            color: rgba(0,0,0,0.03); /* 極淡顏色，隱藏入口 */
+            color: rgba(0,0,0,0.03);
             cursor: pointer;
             padding: 15px;
         }
@@ -292,6 +310,10 @@
         <!-- 首頁：打卡區 -->
         <div id="clock-page">
             <div id="loader" class="loader"></div>
+            
+            <!-- 新增：GPS 位置顯示區 -->
+            <div id="gps-display" class="location-badge">讀取座標中...</div>
+
             <div id="btn-container" class="button-group">
                 <button class="btn" onclick="submitCheckIn('簽到')">簽到上班</button>
                 <button class="btn btn-out" onclick="submitCheckIn('簽退')">簽退下班</button>
@@ -322,33 +344,56 @@
         <div id="admin-page" style="display:none;">
             <div class="admin-header-ui">
                 <h2>管理控制台</h2>
-                <p>ORIGIN CLOCK ADMIN PANEL</p>
+                <div id="admin-tabs" class="admin-tabs" style="margin-top: 15px;">
+                    <button id="tab-records" class="tab-btn active" onclick="switchAdminTab('records')">出勤明細</button>
+                    <button id="tab-settings" class="tab-btn" onclick="switchAdminTab('settings')">地點設定</button>
+                </div>
             </div>
             
-            <div class="controls-box">
-                <label style="font-size: 12px; font-weight: bold; color: var(--text-dim); padding-left: 4px;">人員篩選</label>
-                <select id="user-filter" class="admin-select" onchange="filterAdminHistory()">
-                    <option value="all">顯示所有人</option>
-                </select>
-                <div class="stats-box">
-                    <div class="stat-card in"><span>簽到累計</span><b id="stat-in">0</b></div>
-                    <div class="stat-card out"><span>簽退累計</span><b id="stat-out">0</b></div>
+            <div id="admin-tab-records-content">
+                <div class="controls-box">
+                    <label style="font-size: 12px; font-weight: bold; color: var(--text-dim); padding-left: 4px;">人員篩選</label>
+                    <select id="user-filter" class="admin-select" onchange="filterAdminHistory()">
+                        <option value="all">顯示所有人</option>
+                    </select>
+                    <div class="stats-box">
+                        <div class="stat-card"><span>簽到累計</span><b id="stat-in">0</b></div>
+                        <div class="stat-card"><span>簽退累計</span><b id="stat-out">0</b></div>
+                    </div>
+                </div>
+                <div id="admin-list" class="history-list">
+                    <p style="text-align: center; color: #bdc3c7; font-size: 14px;">大數據分析中...</p>
                 </div>
             </div>
 
-            <div id="admin-list" class="history-list">
-                <p style="text-align: center; color: #bdc3c7; font-size: 14px;">大數據分析中...</p>
+            <div id="admin-tab-settings-content" style="display:none;">
+                <div class="controls-box" style="text-align: left;">
+                    <p style="font-size: 11px; color: var(--secondary-color); margin-bottom: 15px;">* 設定後員工僅能在指定距離內打卡</p>
+                    
+                    <label style="font-size: 12px; font-weight: bold;">辦公地點緯度 (Lat)</label>
+                    <input type="number" id="set-lat" class="admin-input" step="any" placeholder="例如: 25.0330">
+                    
+                    <label style="font-size: 12px; font-weight: bold; margin-top: 10px; display: block;">辦公地點經度 (Lng)</label>
+                    <input type="number" id="set-lng" class="admin-input" step="any" placeholder="例如: 121.5654">
+                    
+                    <label style="font-size: 12px; font-weight: bold; margin-top: 10px; display: block;">容許誤差距離 (公尺)</label>
+                    <input type="number" id="set-radius" class="admin-input" placeholder="建議設定 200">
+
+                    <button class="btn" style="width: 100%; margin-top: 20px; font-size: 14px;" onclick="captureCurrentLocation()">使用我當前位置</button>
+                    <button class="btn" style="width: 100%; margin-top: 10px; font-size: 14px; background: var(--secondary-color);" onclick="saveOfficeSettings()">儲存地點設定</button>
+                </div>
             </div>
+
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
         <p id="status">系統初始化...</p>
         <button id="retry-btn" class="retry-btn" onclick="location.reload()">重新連線</button>
-        <div class="version">ORIGIN CLOUD V2.5 PRO</div>
+        <div class="version">ORIGIN CLOUD V2.7 PRO</div>
         <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
     </div>
 
-    <!-- 管理員登入彈窗 (替換 prompt 以消除網址顯示) -->
+    <!-- 管理員登入彈窗 -->
     <div id="admin-login-modal" class="modal-overlay">
         <div class="modal-content">
             <h3 style="margin-top:0; color:var(--primary-color);">管理員驗證</h3>
@@ -376,7 +421,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyC1CUSE-tou-H_BxfEGg4mxA30HsGF8DWE",
@@ -396,8 +441,21 @@
         let userCoords = null;
         let allRecords = []; 
         let pendingDeleteId = null;
+        let officeSettings = null;
 
-        // 頁面切換邏輯
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; 
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
         window.showView = function(view) {
             const clockPage = document.getElementById('clock-page');
             const historyPage = document.getElementById('history-page');
@@ -421,11 +479,31 @@
                 status.style.display = 'none';
                 mainCard.classList.add('admin-active');
                 adminEntrance.style.display = 'none'; 
-                fetchAdminHistory();
+                switchAdminTab('records');
             } else {
                 clockPage.style.display = 'block';
                 status.style.display = 'block';
                 status.innerText = userCoords ? "定位成功，可開始打卡" : "系統連線中...";
+            }
+        };
+
+        window.switchAdminTab = function(tab) {
+            const recordsContent = document.getElementById('admin-tab-records-content');
+            const settingsContent = document.getElementById('admin-tab-settings-content');
+            const tabRec = document.getElementById('tab-records');
+            const tabSet = document.getElementById('tab-settings');
+            if (tab === 'records') {
+                recordsContent.style.display = 'block';
+                settingsContent.style.display = 'none';
+                tabRec.classList.add('active');
+                tabSet.classList.remove('active');
+                fetchAdminHistory();
+            } else {
+                recordsContent.style.display = 'none';
+                settingsContent.style.display = 'block';
+                tabRec.classList.remove('active');
+                tabSet.classList.add('active');
+                loadOfficeSettingsUI();
             }
         };
 
@@ -444,15 +522,40 @@
                 closeAdminLoginModal();
                 showView('admin');
             } else {
-                const statusText = document.getElementById('status');
-                statusText.innerText = "驗證失敗，密碼錯誤";
-                statusText.style.color = "var(--error-color)";
-                setTimeout(() => {
-                    statusText.innerText = userCoords ? "定位成功，可開始打卡" : "";
-                    statusText.style.color = "var(--text-dim)";
-                }, 2000);
+                alert("密碼錯誤");
                 closeAdminLoginModal();
             }
+        };
+
+        async function loadOfficeSettingsUI() {
+            if (officeSettings) {
+                document.getElementById('set-lat').value = officeSettings.lat;
+                document.getElementById('set-lng').value = officeSettings.lng;
+                document.getElementById('set-radius').value = officeSettings.radius;
+            }
+        }
+
+        window.captureCurrentLocation = function() {
+            if (userCoords) {
+                document.getElementById('set-lat').value = userCoords.lat;
+                document.getElementById('set-lng').value = userCoords.lng;
+                document.getElementById('set-radius').value = 200;
+                alert("已抓取您的當前位置作為基準");
+            } else { alert("尚未取得您的定位，請稍候"); }
+        };
+
+        window.saveOfficeSettings = async function() {
+            const lat = parseFloat(document.getElementById('set-lat').value);
+            const lng = parseFloat(document.getElementById('set-lng').value);
+            const radius = parseInt(document.getElementById('set-radius').value);
+            if (isNaN(lat) || isNaN(lng) || isNaN(radius)) { alert("請輸入有效的數字"); return; }
+            try {
+                await setDoc(doc(db, "tenants/Corin_Beauty/settings", "location"), {
+                    lat, lng, radius, updatedAt: serverTimestamp()
+                });
+                officeSettings = { lat, lng, radius };
+                alert("設定儲存成功！");
+            } catch (e) { alert("儲存失敗: " + e.message); }
         };
 
         window.openDeleteModal = function(id) { pendingDeleteId = id; document.getElementById('delete-modal').style.display = 'flex'; };
@@ -470,18 +573,26 @@
 
         async function initSystem() {
             const statusText = document.getElementById('status');
+            const gpsDisplay = document.getElementById('gps-display');
             try {
                 showView('clock');
-                
                 statusText.innerText = "正在連線 LINE...";
                 await liff.init({ liffId: "2008997688-9iB69K6M" });
                 if (!liff.isLoggedIn()) { liff.login(); return; }
                 userProfile = await liff.getProfile();
                 await signInAnonymously(auth);
                 
+                const settingsSnap = await getDoc(doc(db, "tenants/Corin_Beauty/settings", "location"));
+                if (settingsSnap.exists()) officeSettings = settingsSnap.data();
+
                 statusText.innerText = "正在獲取定位...";
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    
+                    // 更新畫面上顯示的座標
+                    gpsDisplay.style.display = "block";
+                    gpsDisplay.innerText = `📍 目前位置: ${userCoords.lat.toFixed(4)}, ${userCoords.lng.toFixed(4)}`;
+
                     document.getElementById('loader').style.display = "none";
                     document.getElementById('btn-container').style.display = "flex";
                     statusText.innerText = "定位成功，可開始打卡";
@@ -499,15 +610,25 @@
 
         window.submitCheckIn = async function(type) {
             if (!userProfile || !userCoords) return;
+            
+            if (officeSettings) {
+                const dist = getDistance(userCoords.lat, userCoords.lng, officeSettings.lat, officeSettings.lng);
+                if (dist > officeSettings.radius) {
+                    const statusText = document.getElementById('status');
+                    statusText.innerText = `距離辦公點過遠 (${Math.round(dist)}m)\n打卡失敗，請靠近後再試`;
+                    statusText.style.color = "var(--error-color)";
+                    return;
+                }
+            }
+
             document.getElementById('btn-container').style.display = "none";
+            document.getElementById('gps-display').style.display = "none";
             document.getElementById('loader').style.display = "block";
             document.getElementById('status').innerText = `正在提交${type}...`;
 
             try {
                 const now = new Date();
-                // 格式化目前時間以便顯示
                 const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-
                 if (!auth.currentUser) await signInAnonymously(auth);
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId,
@@ -516,18 +637,13 @@
                     lng: userCoords.lng,
                     timestamp: serverTimestamp(),
                     type: type,
-                    client: "Origin-Cloud-V2.5"
+                    client: "Origin-Cloud-V2.7"
                 });
-                
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
-                // 更新狀態顯示時間
                 document.getElementById('status').innerText = `[${timeStr}] ${type}成功！`;
-                
-                setTimeout(() => liff.closeWindow(), 3000);
-            } catch (e) { 
-                document.getElementById('status').innerText = "提交失敗";
-            }
+                setTimeout(() => liff.closeWindow(), 2500);
+            } catch (e) { document.getElementById('status').innerText = "提交失敗: " + e.message; }
         };
 
         async function fetchHistory() {
@@ -587,7 +703,6 @@
                 if (!groups[key]) groups[key] = { date: dateKey, user: userKey, items: [], totalMinutes: 0 };
                 groups[key].items.push(rec);
             });
-
             Object.values(groups).forEach(group => {
                 const ins = group.items.filter(i => i.type === '簽到');
                 const outs = group.items.filter(i => i.type === '簽退');
@@ -597,11 +712,8 @@
                     if (lastOut > firstIn) group.totalMinutes = (lastOut - firstIn) / (1000 * 60);
                 }
             });
-
             const sortedGroups = Object.values(groups).sort((a, b) => new Date(b.date.replace(/\//g,'-')) - new Date(a.date.replace(/\//g,'-')));
-
             if (!sortedGroups.length) { container.innerHTML = '<p style="text-align:center; color:#ccc; margin-top:20px;">尚無數據</p>'; return; }
-
             container.innerHTML = sortedGroups.map(group => {
                 const itemsHtml = group.items.sort((a,b) => b.timestamp.seconds - a.timestamp.seconds).map(rec => {
                     const timeStr = rec.timestamp.toDate().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -617,13 +729,7 @@
                         </div>
                     `;
                 }).join('');
-                
-                const durationHtml = group.totalMinutes > 0 ? `
-                    <div class="daily-summary">
-                        <span>🕒 單日總工時</span>
-                        <span>${Math.floor(group.totalMinutes/60)} 小時 ${Math.round(group.totalMinutes%60)} 分</span>
-                    </div>
-                ` : '';
+                const durationHtml = group.totalMinutes > 0 ? `<div class="daily-summary"><span>🕒 單日總工時</span><span>${Math.floor(group.totalMinutes/60)} 小時 ${Math.round(group.totalMinutes%60)} 分</span></div>` : '';
                 return itemsHtml + durationHtml;
             }).join('');
         }
