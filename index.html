@@ -76,10 +76,10 @@
             margin: 15px 0 20px 0;
         }
 
-        /* 打卡頁面內崁地圖樣式 */
+        /* 打卡頁面內崁地圖樣式 - 已調大高度 */
         .main-map-container {
             width: 100%;
-            height: 180px;
+            height: 250px; /* 原為 180px */
             background: #eee;
             border-radius: 20px;
             overflow: hidden;
@@ -170,7 +170,7 @@
         .item-info { display: flex; flex-direction: column; text-align: left; }
         .item-type { font-size: 14px; font-weight: 800; color: #2d3436; }
         .item-date { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
-        .item-time { font-size: 18px; font-weight: 900; color: #2d3436; }
+        .item-time { font-size: 16px; font-weight: 900; color: #2d3436; }
 
         .btn-map-inline {
             font-size: 10px;
@@ -187,7 +187,7 @@
 
         .admin-header-ui {
             background: linear-gradient(135deg, var(--primary-color), #00d2ff);
-            margin: -20px -20px 20px -20px;
+            margin: -20px -25px 20px -25px;
             padding: 20px;
             color: white;
             text-align: left;
@@ -255,7 +255,7 @@
             <div id="status">系統初始化中...</div>
             <div id="gps-display" class="location-badge">讀取座標中...</div>
 
-            <!-- 首頁內崁地圖：打卡按鈕上方 -->
+            <!-- 首頁內崁地圖：打卡按鈕上方，高度已調大 -->
             <div id="main-map-box" class="main-map-container">
                 <iframe id="main-map-iframe" src=""></iframe>
             </div>
@@ -376,7 +376,7 @@
         let userProfile = null;
         let userCoords = null;
         let allRecords = []; 
-        let officeLocations = []; // 存儲多個據點
+        let officeLocations = []; 
 
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3; 
@@ -433,14 +433,12 @@
             }
         };
 
-        // 地圖功能
         window.openMapModal = function(lat, lng) {
             document.getElementById('map-iframe').src = `https://maps.google.com/maps?q=${lat},${lng}&hl=zh-TW&z=16&output=embed`;
             document.getElementById('map-modal').style.display = 'flex';
         };
         window.closeMapModal = function() { document.getElementById('map-modal').style.display = 'none'; };
 
-        // 管理者密碼
         window.openAdminLoginModal = function() { document.getElementById('admin-login-modal').style.display = 'flex'; };
         window.closeAdminLoginModal = function() { document.getElementById('admin-login-modal').style.display = 'none'; };
         window.verifyAdminPassword = function() {
@@ -449,7 +447,6 @@
             } else { alert("密碼錯誤"); }
         };
 
-        // 地點設定邏輯
         window.captureCurrentLocation = function() {
             if (userCoords) {
                 document.getElementById('set-lat').value = userCoords.lat;
@@ -463,9 +460,7 @@
             const lat = parseFloat(document.getElementById('set-lat').value);
             const lng = parseFloat(document.getElementById('set-lng').value);
             const radius = parseInt(document.getElementById('set-radius').value);
-
             if (!remark || isNaN(lat) || isNaN(lng) || isNaN(radius)) { alert("請填寫完整資訊"); return; }
-
             const newLoc = { id: Date.now().toString(), remark, lat, lng, radius };
             officeLocations.push(newLoc);
             try {
@@ -509,17 +504,13 @@
                 userProfile = await liff.getProfile();
                 await signInAnonymously(auth);
                 
-                // 讀取所有據點設定
                 const configSnap = await getDoc(doc(db, "tenants/Corin_Beauty/settings", "config"));
                 if (configSnap.exists()) officeLocations = configSnap.data().locations || [];
 
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    
-                    // 顯示首頁內崁地圖
                     mainMapIframe.src = `https://maps.google.com/maps?q=${userCoords.lat},${userCoords.lng}&hl=zh-TW&z=17&output=embed`;
                     mainMapBox.style.display = 'block';
-                    
                     gpsDisplay.style.display = "block";
                     gpsDisplay.innerText = `📍 目前位置: ${userCoords.lat.toFixed(4)}, ${userCoords.lng.toFixed(4)}`;
                     document.getElementById('loader').style.display = "none";
@@ -533,19 +524,15 @@
 
         window.submitCheckIn = async function(type) {
             if (!userProfile || !userCoords) return;
-            
             let allowClockIn = false;
             let nearestDist = Infinity;
-
             if (officeLocations.length > 0) {
                 officeLocations.forEach(loc => {
                     const dist = getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng);
                     if (dist <= loc.radius) allowClockIn = true;
                     if (dist < nearestDist) nearestDist = dist;
                 });
-            } else {
-                allowClockIn = true; // 若無設定據點則不限制 (可選)
-            }
+            } else { allowClockIn = true; }
 
             if (!allowClockIn) {
                 document.getElementById('status').innerText = `不在打卡範圍內 (最近距離 ${Math.round(nearestDist)}m)\n請至任一門市後再試`;
@@ -560,7 +547,8 @@
             
             try {
                 const now = new Date();
-                const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+                // 修正為顯示時分秒
+                const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId, userName: userProfile.displayName,
                     lat: userCoords.lat, lng: userCoords.lng, timestamp: serverTimestamp(), type: type, client: "V3.0"
@@ -629,7 +617,8 @@
             if (!sorted.length) { container.innerHTML = '<p style="text-align:center; color:#ccc; margin-top:20px;">尚無紀錄</p>'; return; }
             container.innerHTML = sorted.map(g => {
                 const itemsHtml = g.items.sort((a,b) => b.timestamp.seconds - a.timestamp.seconds).map(rec => {
-                    const timeStr = rec.timestamp.toDate().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    // 修正為顯示時分秒
+                    const timeStr = rec.timestamp.toDate().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
                     return `
                         <div class="history-item ${rec.type === '簽到' ? 'in' : 'out'}">
                             <div class="item-info">
