@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>原點雲打卡系統 - 智慧定位</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // 這裡填入您在第一階段獲取的 SDK 配置
+        const firebaseConfig = { 
+            apiKey: "...", 
+            projectId: "origin-cloud-clockin",
+            /* ... 其他配置 */ 
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        async function doOriginClock() {
+            // 初始化 LIFF
+            await liff.init({ liffId: "您的_LIFF_ID" });
+            if (!liff.isLoggedIn()) { liff.login(); return; }
+
+            const profile = await liff.getProfile();
+            
+            // 獲取 GPS
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
+                    userId: profile.userId,
+                    name: profile.displayName,
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    timestamp: serverTimestamp(),
+                    status: "SUCCESS"
+                });
+                alert("原點雲：打卡成功！");
+                liff.closeWindow();
+            });
+        }
+        doOriginClock();
+    </script>
+</head>
+<body>
+    <div style="text-align:center; padding: 20px;">
+        <h2>原點雲打卡系統</h2>
+        <p>正在定位您的地理原點...</p>
+    </div>
+</body>
+</html>
