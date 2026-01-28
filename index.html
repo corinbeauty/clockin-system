@@ -137,7 +137,6 @@
         .history-list::-webkit-scrollbar { width: 4px; }
         .history-list::-webkit-scrollbar-thumb { background: #eee; border-radius: 10px; }
 
-        /* 紀錄卡片佈局修正：確保為直向 */
         .history-item {
             background: #ffffff;
             padding: 15px;
@@ -298,6 +297,19 @@
             border: 1px solid #e2e8f0;
         }
         .admin-map-preview iframe { width: 100%; height: 100%; border: none; }
+
+        .success-icon { 
+            color: var(--primary-color); 
+            font-size: 55px; 
+            display: none; 
+            margin: 20px 0;
+            animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        @keyframes bounceIn {
+            0% { opacity: 0; transform: scale(0.3); }
+            50% { opacity: 1; transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body>
@@ -391,7 +403,7 @@
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
-        <div class="version">ORIGIN CLOUD V3.7 PRO</div>
+        <div class="version">ORIGIN CLOUD V3.8 PRO</div>
         <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
     </div>
 
@@ -461,6 +473,7 @@
             const mainCard = document.getElementById('main-card');
             const gpsDisplay = document.getElementById('gps-display');
             const mainMapBox = document.getElementById('main-map-box');
+            const status = document.getElementById('status');
 
             clockPage.style.display = 'none';
             historyPage.style.display = 'none';
@@ -473,7 +486,12 @@
                 adminPage.style.display = 'block'; mainCard.classList.add('admin-active'); switchAdminTab('records');
             } else {
                 clockPage.style.display = 'block';
-                if (userCoords) { gpsDisplay.style.display = 'block'; mainMapBox.style.display = 'block'; }
+                if (userCoords) { 
+                    gpsDisplay.style.display = 'block'; 
+                    mainMapBox.style.display = 'block'; 
+                    status.innerText = "定位成功，可開始打卡";
+                    status.style.color = "var(--text-dim)";
+                }
             }
         };
 
@@ -629,23 +647,35 @@
                 document.getElementById('status').style.color = "var(--error-color)"; return;
             }
 
+            const statusText = document.getElementById('status');
             document.getElementById('btn-container').style.display = "none";
             document.getElementById('main-map-box').style.display = "none";
             document.getElementById('gps-display').style.display = "none";
             document.getElementById('loader').style.display = "block";
+            
             try {
                 const now = new Date();
                 const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId, userName: userProfile.displayName,
                     locationName: currentOfficeName, lat: userCoords.lat, lng: userCoords.lng, 
-                    timestamp: serverTimestamp(), type: type, client: "V3.7"
+                    timestamp: serverTimestamp(), type: type, client: "V3.8"
                 });
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
-                document.getElementById('status').innerText = `[${timeStr}] ${type}成功！`;
-                document.getElementById('status').style.color = "var(--primary-color)";
-                setTimeout(() => liff.closeWindow(), 2500);
+                statusText.innerText = `[${timeStr}] ${type}成功！`;
+                statusText.style.color = "var(--primary-color)";
+                
+                // 修改：打卡成功後不再關閉 LINE，而是自動回到打卡首頁
+                setTimeout(() => {
+                    document.getElementById('success').style.display = "none";
+                    document.getElementById('btn-container').style.display = "flex";
+                    document.getElementById('main-map-box').style.display = "block";
+                    document.getElementById('gps-display').style.display = "block";
+                    statusText.innerText = "定位成功，可開始打卡";
+                    statusText.style.color = "var(--text-dim)";
+                }, 3000);
+
             } catch (e) { alert("提交失敗"); }
         };
 
@@ -684,7 +714,6 @@
             renderHistoryList(filtered, document.getElementById('admin-list'), true);
         };
 
-        // 核心排序修正：確保最新紀錄永遠在最上方
         function renderHistoryList(records, container, isAdmin) {
             let groups = {};
             records.forEach(rec => {
@@ -693,24 +722,15 @@
                 const dateKey = d.toLocaleDateString('zh-TW');
                 const userKey = rec.userName || '未知用戶';
                 const key = `${dateKey}_${userKey}`;
-
                 if (!groups[key]) {
-                    groups[key] = { 
-                        date: dateKey, 
-                        user: userKey, 
-                        items: [], 
-                        totalMinutes: 0,
-                        latestTimestamp: 0 // 用於組間排序
-                    };
+                    groups[key] = { date: dateKey, user: userKey, items: [], totalMinutes: 0, latestTimestamp: 0 };
                 }
                 groups[key].items.push(rec);
-                // 更新該組最新的秒數，確保後續組間排序
                 if (rec.timestamp.seconds > groups[key].latestTimestamp) {
                     groups[key].latestTimestamp = rec.timestamp.seconds;
                 }
             });
 
-            // 計算當日總工時
             Object.values(groups).forEach(g => {
                 const ins = g.items.filter(i => i.type === '簽到'); 
                 const outs = g.items.filter(i => i.type === '簽退');
@@ -721,13 +741,10 @@
                 }
             });
 
-            // 修正：按「最新打卡時間」由大到小排序所有群組
             const sortedGroups = Object.values(groups).sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-
             if (!sortedGroups.length) { container.innerHTML = '<p style="text-align:center; color:#ccc; margin-top:20px;">尚無紀錄</p>'; return; }
 
             container.innerHTML = sortedGroups.map(g => {
-                // 內部細項排序：確保同一天內最新打卡的也在上方
                 const itemsHtml = g.items.sort((a,b) => b.timestamp.seconds - a.timestamp.seconds).map(rec => {
                     const timeStr = rec.timestamp.toDate().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
                     return `
