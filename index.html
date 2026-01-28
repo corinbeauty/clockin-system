@@ -379,6 +379,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -392,6 +393,7 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getFirestore(app);
 
         let userProfile = null;
@@ -436,7 +438,6 @@
             }
         };
 
-        // 彈窗控制
         window.openDeleteModal = function(recordId) {
             pendingDeleteId = recordId;
             document.getElementById('delete-modal').style.display = 'flex';
@@ -450,13 +451,13 @@
         document.getElementById('modal-confirm-btn').onclick = async function() {
             if (!pendingDeleteId) return;
             try {
-                // 執行 Firebase 刪除
+                if (!auth.currentUser) await signInAnonymously(auth);
                 await deleteDoc(doc(db, "tenants/Corin_Beauty/checkins", pendingDeleteId));
                 closeDeleteModal();
-                fetchHistory(); // 重新整理個人紀錄
+                fetchHistory();
             } catch (e) {
                 console.error("註銷失敗", e);
-                alert("註銷失敗，請重試");
+                alert("註銷失敗：" + (e.code || e.message));
             }
         };
 
@@ -465,6 +466,7 @@
                 await liff.init({ liffId: "2008997688-9iB69K6M" });
                 if (!liff.isLoggedIn()) { liff.login(); return; }
                 userProfile = await liff.getProfile();
+                await signInAnonymously(auth);
                 
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -492,6 +494,8 @@
             try {
                 const now = new Date();
                 const timeString = now.toLocaleTimeString('zh-TW', { hour12: false });
+                if (!auth.currentUser) await signInAnonymously(auth);
+
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId,
                     userName: userProfile.displayName,
@@ -519,22 +523,18 @@
         async function fetchHistory() {
             const listContainer = document.getElementById('history-list');
             if (!userProfile) return;
-
             try {
+                if (!auth.currentUser) await signInAnonymously(auth);
                 const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
                 let records = [];
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
-                    if (data.userId === userProfile.userId) {
-                        records.push({ ...data, id: doc.id }); // 包含 ID 供刪除使用
-                    }
+                    if (data.userId === userProfile.userId) records.push({ ...data, id: doc.id });
                 });
-
                 const countIn = records.filter(r => r.type === '簽到').length;
                 const countOut = records.filter(r => r.type === '簽退').length;
                 document.getElementById('user-stat-in').textContent = countIn;
                 document.getElementById('user-stat-out').textContent = countOut;
-
                 renderHistoryList(records, listContainer, false);
             } catch (e) {
                 listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">讀取失敗</p>';
@@ -545,18 +545,15 @@
             const listContainer = document.getElementById('admin-list');
             const filterSelect = document.getElementById('user-filter');
             listContainer.innerHTML = '<p style="text-align: center; color: #bdc3c7;">讀取全局數據中...</p>';
-
             try {
                 const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
                 allRecords = [];
                 let users = new Set();
-                
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
                     allRecords.push({ ...data, id: doc.id });
                     if (data.userName) users.add(data.userName);
                 });
-
                 filterSelect.innerHTML = '<option value="all">顯示所有人</option>';
                 Array.from(users).sort().forEach(name => {
                     const opt = document.createElement('option');
@@ -564,7 +561,6 @@
                     opt.textContent = name;
                     filterSelect.appendChild(opt);
                 });
-
                 filterAdminHistory();
             } catch (e) {
                 listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">管理者讀取失敗</p>';
@@ -574,23 +570,17 @@
         window.filterAdminHistory = function() {
             const listContainer = document.getElementById('admin-list');
             const filterValue = document.getElementById('user-filter').value;
-            
             let filtered = allRecords;
-            if (filterValue !== "all") {
-                filtered = allRecords.filter(r => r.userName === filterValue);
-            }
-
+            if (filterValue !== "all") filtered = allRecords.filter(r => r.userName === filterValue);
             const countIn = filtered.filter(r => r.type === '簽到').length;
             const countOut = filtered.filter(r => r.type === '簽退').length;
             document.getElementById('stat-in').textContent = countIn;
             document.getElementById('stat-out').textContent = countOut;
-
             renderHistoryList(filtered, listContainer, true);
         };
 
         function renderHistoryList(records, container, isAdminView) {
-            records.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
-
+            // 分組資料 (按日期 + 人員)
             let groups = {};
             records.forEach(rec => {
                 if (!rec.timestamp) return;
@@ -603,17 +593,21 @@
                 groups[key].items.push(rec);
             });
 
+            // 更新工時計算邏輯：第一個簽到 - 最後一個簽退
             Object.values(groups).forEach(group => {
-                let lastIn = null;
-                group.items.forEach(item => {
-                    if (item.type === '簽到') {
-                        lastIn = item.timestamp.toDate();
-                    } else if (item.type === '簽退' && lastIn) {
-                        const duration = (item.timestamp.toDate() - lastIn) / (1000 * 60);
-                        group.totalMinutes += duration;
-                        lastIn = null;
+                const inRecords = group.items.filter(i => i.type === '簽到');
+                const outRecords = group.items.filter(i => i.type === '簽退');
+
+                if (inRecords.length > 0 && outRecords.length > 0) {
+                    // 找到最早的簽到時間
+                    const firstIn = inRecords.reduce((min, p) => p.timestamp.toDate() < min ? p.timestamp.toDate() : min, inRecords[0].timestamp.toDate());
+                    // 找到最晚的簽退時間
+                    const lastOut = outRecords.reduce((max, p) => p.timestamp.toDate() > max ? p.timestamp.toDate() : max, outRecords[0].timestamp.toDate());
+
+                    if (lastOut > firstIn) {
+                        group.totalMinutes = (lastOut - firstIn) / (1000 * 60);
                     }
-                });
+                }
             });
 
             const sortedGroups = Object.values(groups).sort((a, b) => {
@@ -633,8 +627,6 @@
                     const dateObj = rec.timestamp.toDate();
                     const timeStr = dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
                     const isIn = rec.type === '簽到';
-                    
-                    // 僅在非管理員視圖（即個人查詢頁面）顯示註銷按鈕
                     const deleteBtnHtml = !isAdminView ? `<button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷紀錄</button>` : '';
 
                     return `
@@ -659,7 +651,7 @@
                     
                     html += `
                         <div class="daily-summary">
-                            <span>🕒 單日工時統計</span>
+                            <span>🕒 單日總工時 (首進末出)</span>
                             <span>${durationStr}</span>
                         </div>
                     `;
