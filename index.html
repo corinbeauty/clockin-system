@@ -59,7 +59,7 @@
         
         /* 按鈕區域 */
         .button-group {
-            display: none;
+            display: none; /* 定位成功後顯示 */
             flex-direction: column;
             gap: 15px;
             margin: 25px 0;
@@ -87,7 +87,9 @@
             font-size: 14px;
             text-decoration: underline;
             background: none;
-            margin-top: 10px;
+            margin-top: 15px;
+            cursor: pointer;
+            display: inline-block;
         }
 
         /* 紀錄頁面樣式 */
@@ -148,12 +150,16 @@
         <!-- 首頁：打卡區 -->
         <div id="clock-page">
             <div id="loader" class="loader"></div>
+            
             <div id="btn-container" class="button-group">
                 <button class="btn" onclick="submitCheckIn('簽到')">簽到上班</button>
                 <button class="btn" style="border-color: #888; color: #888;" onclick="submitCheckIn('簽退')">簽退下班</button>
-                <button class="btn-history" onclick="showView('history')">查看我的紀錄</button>
             </div>
+
             <div id="success" class="success-icon">✔</div>
+            
+            <!-- 將紀錄按鈕移出隱藏區，讓使用者隨時可點擊 -->
+            <button id="nav-history-btn" class="btn-history" onclick="showView('history')">查看我的紀錄</button>
         </div>
 
         <!-- 分頁：紀錄區 -->
@@ -162,7 +168,7 @@
             <div id="history-list" class="history-list">
                 <p style="text-align: center; color: #555;">載入中...</p>
             </div>
-            <button class="btn-history" style="width: 100%; margin-top: 20px;" onclick="showView('clock')">返回打卡頁面</button>
+            <button class="btn-history" style="width: 100%; margin-top: 20px; text-align: center;" onclick="showView('clock')">返回打卡頁面</button>
         </div>
         
         <p id="status">正在取得地理原點...</p>
@@ -219,6 +225,8 @@
 
                 userProfile = await liff.getProfile();
                 
+                // 進入頁面後，即便還沒定位成功，只要有 Profile 就可以查看紀錄
+                
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     userCoords = {
                         lat: pos.coords.latitude,
@@ -246,6 +254,7 @@
             if (!userProfile || !userCoords) return;
 
             document.getElementById('btn-container').style.display = "none";
+            document.getElementById('nav-history-btn').style.display = "none";
             document.getElementById('loader').style.display = "block";
             document.getElementById('status').innerText = `正在提交${type}紀錄...`;
 
@@ -274,6 +283,7 @@
                 console.error(e);
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('btn-container').style.display = "flex";
+                document.getElementById('nav-history-btn').style.display = "inline-block";
                 document.getElementById('status').innerText = "寫入失敗，請重試";
                 document.getElementById('status').style.color = "var(--error-color)";
             }
@@ -284,20 +294,22 @@
             const listContainer = document.getElementById('history-list');
             listContainer.innerHTML = '<p style="text-align: center; color: #555;">載入紀錄中...</p>';
 
+            if (!userProfile) {
+                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">身分驗證中，請稍候...</p>';
+                return;
+            }
+
             try {
-                // 為符合「禁止複雜查詢」規則，我們獲取集合後在前端過濾 userId
                 const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
                 
                 let records = [];
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
-                    // 關鍵：只篩選當前使用者的紀錄
                     if (data.userId === userProfile.userId) {
                         records.push(data);
                     }
                 });
 
-                // 按時間由新到舊排序
                 records.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
 
                 if (records.length === 0) {
