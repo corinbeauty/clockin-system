@@ -420,7 +420,7 @@
                 adminPage.style.display = 'block';
                 status.style.display = 'none';
                 mainCard.classList.add('admin-active');
-                adminEntrance.style.display = 'none'; // 管理模式下隱藏入口
+                adminEntrance.style.display = 'none'; 
                 fetchAdminHistory();
             } else {
                 clockPage.style.display = 'block';
@@ -429,7 +429,6 @@
             }
         };
 
-        // 自定義管理員登入彈窗控制
         window.openAdminLoginModal = function() {
             document.getElementById('admin-password-input').value = '';
             document.getElementById('admin-login-modal').style.display = 'flex';
@@ -472,7 +471,6 @@
         async function initSystem() {
             const statusText = document.getElementById('status');
             try {
-                // 強制初始狀態為 Clock
                 showView('clock');
                 
                 statusText.innerText = "正在連線 LINE...";
@@ -506,6 +504,10 @@
             document.getElementById('status').innerText = `正在提交${type}...`;
 
             try {
+                const now = new Date();
+                // 格式化目前時間以便顯示
+                const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
                 if (!auth.currentUser) await signInAnonymously(auth);
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId,
@@ -516,10 +518,13 @@
                     type: type,
                     client: "Origin-Cloud-V2.5"
                 });
+                
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
-                document.getElementById('status').innerText = `${type}成功！`;
-                setTimeout(() => liff.closeWindow(), 2500);
+                // 更新狀態顯示時間
+                document.getElementById('status').innerText = `[${timeStr}] ${type}成功！`;
+                
+                setTimeout(() => liff.closeWindow(), 3000);
             } catch (e) { 
                 document.getElementById('status').innerText = "提交失敗";
             }
