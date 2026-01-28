@@ -3,32 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>原點雲打卡系統</title>
+    <title>原點雲打卡系統 - 除錯模式</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        :root { --primary-color: #00ffcc; --bg-color: #121212; --card-bg: #1e1e1e; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: var(--bg-color); color: white; }
-        .card { background: var(--card-bg); padding: 40px; border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); text-align: center; width: 85%; max-width: 320px; border: 1px solid #333; }
-        .brand { font-size: 24px; font-weight: bold; margin-bottom: 10px; letter-spacing: 2px; color: var(--primary-color); }
-        .loader { border: 3px solid #333; border-top: 3px solid var(--primary-color); border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin: 25px auto; }
+        :root { --primary-color: #00ffcc; --bg-color: #121212; --card-bg: #1e1e1e; --error-color: #ff4d4d; }
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: var(--bg-color); color: white; }
+        .card { background: var(--card-bg); padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; width: 85%; max-width: 320px; border: 1px solid #333; }
+        .brand { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: var(--primary-color); }
+        .loader { border: 3px solid #333; border-top: 3px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .success-icon { color: var(--primary-color); font-size: 60px; display: none; margin: 20px 0; }
-        #status { font-size: 14px; color: #aaa; margin-top: 15px; line-height: 1.6; }
+        #status { font-size: 14px; color: #aaa; margin-top: 10px; }
+        #error-log { font-size: 12px; color: var(--error-color); background: rgba(255, 77, 77, 0.1); padding: 10px; border-radius: 8px; margin-top: 15px; display: none; word-break: break-all; }
+        button { background: var(--primary-color); color: black; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; margin-top: 15px; cursor: pointer; display: none; }
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="brand">原點雲</div>
+        <div class="brand">原點雲 - 系統檢查</div>
         <div id="loader" class="loader"></div>
-        <div id="success" class="success-icon">✔</div>
-        <p id="status">正在驗證地理原點...</p>
+        <p id="status">正在與 LINE 平台連線...</p>
+        <div id="error-log"></div>
+        <button id="retry-btn" onclick="location.reload()">重新整理</button>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // 您的專屬 Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyC1CUSE-tou-H_BxfEGg4mxA30HsGF8DWE",
             authDomain: "origin-cloud-clockin.firebaseapp.com",
@@ -42,47 +43,59 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        function showError(msg) {
+            document.getElementById('loader').style.display = "none";
+            document.getElementById('status').innerText = "初始化失敗";
+            const log = document.getElementById('error-log');
+            log.innerText = "錯誤原因: " + msg;
+            log.style.display = "block";
+            document.getElementById('retry-btn').style.display = "inline-block";
+        }
+
         async function init() {
             try {
-                // 初始化您的正式 LIFF ID
-                await liff.init({ liffId: "2008997688-9iB69K6M" });
+                // 檢查點 1: LIFF 初始化
+                await liff.init({ liffId: "2008997688-9iB69K6M" })
+                    .catch(err => { throw new Error("LINE 初始化失敗: " + err.message); });
                 
                 if (!liff.isLoggedIn()) {
                     liff.login();
                     return;
                 }
 
+                document.getElementById('status').innerText = "身分驗證成功，獲取定位中...";
+
                 const profile = await liff.getProfile();
 
-                // 請求精準 GPS 位置
+                // 檢查點 2: 定位取得
                 navigator.geolocation.getCurrentPosition(async (pos) => {
-                    // 寫入 Firebase 租戶路徑 (V2.1 商用版)
-                    await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
-                        userId: profile.userId,
-                        userName: profile.displayName,
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude,
-                        timestamp: serverTimestamp(),
-                        client: "Origin-Cloud-V2.1"
-                    });
+                    try {
+                        // 檢查點 3: Firebase 寫入
+                        await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
+                            userId: profile.userId,
+                            userName: profile.displayName,
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude,
+                            timestamp: serverTimestamp(),
+                            client: "Origin-Cloud-Debug"
+                        });
 
-                    // UI 更新成功狀態
-                    document.getElementById('loader').style.display = "none";
-                    document.getElementById('success').style.display = "block";
-                    document.getElementById('status').innerText = "定位成功，歡迎打卡！\n窗口將自動關閉";
-                    
-                    setTimeout(() => liff.closeWindow(), 2000);
-                }, (err) => {
-                    document.getElementById('status').innerText = "定位失敗：請檢查手機 GPS 權限是否開啟";
-                    document.getElementById('loader').style.display = "none";
-                }, { enableHighAccuracy: true });
+                        document.getElementById('loader').style.display = "none";
+                        document.getElementById('status').innerText = "打卡成功！";
+                        setTimeout(() => liff.closeWindow(), 2000);
+                    } catch (dbErr) {
+                        showError("資料庫寫入失敗 (檢查 Rules): " + dbErr.message);
+                    }
+                }, (geoErr) => {
+                    showError("定位權限遭拒或失敗: " + geoErr.message);
+                }, { enableHighAccuracy: true, timeout: 10000 });
 
             } catch (err) {
-                document.getElementById('status').innerText = "系統初始化失敗，請稍後再試";
-                console.error("LIFF Init Error:", err);
+                showError(err.message);
             }
         }
-        init();
+
+        window.onload = init;
     </script>
 </body>
 </html>
