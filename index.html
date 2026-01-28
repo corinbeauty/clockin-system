@@ -177,8 +177,26 @@
         .item-time { font-size: 15px; font-weight: 800; color: #2d3436; }
         .item-user { font-size: 11px; color: var(--primary-color); margin-bottom: 2px; font-weight: bold; }
 
-        /* 管理員專屬樣式 */
-        .admin-controls {
+        /* 註銷按鈕 */
+        .btn-delete {
+            font-size: 10px;
+            color: var(--error-color);
+            background: rgba(231, 76, 60, 0.1);
+            border: 1px solid var(--error-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+            align-self: flex-start;
+            transition: 0.2s;
+        }
+        .btn-delete:hover {
+            background: var(--error-color);
+            color: white;
+        }
+
+        /* 統計與控制項樣式 */
+        .controls-box {
             background: #f1f2f6;
             padding: 18px;
             border-radius: 20px;
@@ -210,6 +228,41 @@
         }
         .stat-card span { display: block; font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
         .stat-card b { font-size: 16px; color: var(--text-main); }
+
+        /* 自定義彈窗 */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 20px;
+            width: 80%;
+            max-width: 300px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .modal-btns {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-confirm { background: var(--error-color); color: white; }
+        .btn-cancel { background: #eee; color: #777; }
 
         .success-icon { 
             color: var(--primary-color); 
@@ -269,6 +322,14 @@
                 <h3 style="margin: 0; font-size: 18px;">最近紀錄</h3>
                 <span style="font-size: 12px; color: var(--text-dim);">個人考勤專區</span>
             </div>
+
+            <div class="controls-box">
+                <div class="stats-box" style="margin-top: 0;">
+                    <div class="stat-card"><span>簽到總次數</span><b id="user-stat-in">0</b></div>
+                    <div class="stat-card"><span>簽退總次數</span><b id="user-stat-out">0</b></div>
+                </div>
+            </div>
+
             <div id="history-list" class="history-list">
                 <p style="text-align: center; color: #bdc3c7; font-size: 14px; margin-top: 30px;">載入中...</p>
             </div>
@@ -282,7 +343,7 @@
                 <span style="font-size: 12px; color: var(--primary-color); font-weight: bold;">系統管理員</span>
             </div>
             
-            <div class="admin-controls">
+            <div class="controls-box">
                 <label style="font-size: 12px; font-weight: bold; color: var(--text-main);">搜尋員工：</label>
                 <select id="user-filter" class="admin-select" onchange="filterAdminHistory()">
                     <option value="all">顯示所有人</option>
@@ -304,9 +365,21 @@
         <div class="admin-link" onclick="handleAdminLogin()">ADMIN</div>
     </div>
 
+    <!-- 刪除確認彈窗 -->
+    <div id="delete-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color:var(--error-color);">確認註銷？</h3>
+            <p style="font-size:14px; color:#666;">此操作將永久刪除該次打卡紀錄，且無法恢復。</p>
+            <div class="modal-btns">
+                <button class="modal-btn btn-cancel" onclick="closeDeleteModal()">取消</button>
+                <button id="modal-confirm-btn" class="modal-btn btn-confirm">確認註銷</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyC1CUSE-tou-H_BxfEGg4mxA30HsGF8DWE",
@@ -324,6 +397,7 @@
         let userProfile = null;
         let userCoords = null;
         let allRecords = []; 
+        let pendingDeleteId = null;
 
         window.showView = function(view) {
             const clockPage = document.getElementById('clock-page');
@@ -359,6 +433,30 @@
                 showView('admin');
             } else if (pw !== null) {
                 alert("驗證失敗！");
+            }
+        };
+
+        // 彈窗控制
+        window.openDeleteModal = function(recordId) {
+            pendingDeleteId = recordId;
+            document.getElementById('delete-modal').style.display = 'flex';
+        };
+
+        window.closeDeleteModal = function() {
+            pendingDeleteId = null;
+            document.getElementById('delete-modal').style.display = 'none';
+        };
+
+        document.getElementById('modal-confirm-btn').onclick = async function() {
+            if (!pendingDeleteId) return;
+            try {
+                // 執行 Firebase 刪除
+                await deleteDoc(doc(db, "tenants/Corin_Beauty/checkins", pendingDeleteId));
+                closeDeleteModal();
+                fetchHistory(); // 重新整理個人紀錄
+            } catch (e) {
+                console.error("註銷失敗", e);
+                alert("註銷失敗，請重試");
             }
         };
 
@@ -427,8 +525,16 @@
                 let records = [];
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
-                    if (data.userId === userProfile.userId) records.push(data);
+                    if (data.userId === userProfile.userId) {
+                        records.push({ ...data, id: doc.id }); // 包含 ID 供刪除使用
+                    }
                 });
+
+                const countIn = records.filter(r => r.type === '簽到').length;
+                const countOut = records.filter(r => r.type === '簽退').length;
+                document.getElementById('user-stat-in').textContent = countIn;
+                document.getElementById('user-stat-out').textContent = countOut;
+
                 renderHistoryList(records, listContainer, false);
             } catch (e) {
                 listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">讀取失敗</p>';
@@ -447,7 +553,7 @@
                 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
-                    allRecords.push(data);
+                    allRecords.push({ ...data, id: doc.id });
                     if (data.userName) users.add(data.userName);
                 });
 
@@ -482,12 +588,9 @@
             renderHistoryList(filtered, listContainer, true);
         };
 
-        // 核心渲染邏輯：包含時數計算
-        function renderHistoryList(records, container, showAdminExtras) {
-            // 先按時間從舊到新排，方便計算區間
+        function renderHistoryList(records, container, isAdminView) {
             records.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
 
-            // 分組資料 (按日期)
             let groups = {};
             records.forEach(rec => {
                 if (!rec.timestamp) return;
@@ -500,7 +603,6 @@
                 groups[key].items.push(rec);
             });
 
-            // 計算每一組的時數
             Object.values(groups).forEach(group => {
                 let lastIn = null;
                 group.items.forEach(item => {
@@ -509,12 +611,11 @@
                     } else if (item.type === '簽退' && lastIn) {
                         const duration = (item.timestamp.toDate() - lastIn) / (1000 * 60);
                         group.totalMinutes += duration;
-                        lastIn = null; // 重置等待下一次簽到
+                        lastIn = null;
                     }
                 });
             });
 
-            // 轉回顯示順序 (從新到舊)
             const sortedGroups = Object.values(groups).sort((a, b) => {
                 const dateA = new Date(a.date.replace(/\//g, '-'));
                 const dateB = new Date(b.date.replace(/\//g, '-'));
@@ -528,18 +629,21 @@
 
             let html = "";
             sortedGroups.forEach(group => {
-                // 渲染該組的所有打卡條
-                // 在管理頁面中，我們將同一天的打卡項目列出
                 const itemsHtml = group.items.sort((a,b) => b.timestamp.seconds - a.timestamp.seconds).map(rec => {
                     const dateObj = rec.timestamp.toDate();
                     const timeStr = dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
                     const isIn = rec.type === '簽到';
+                    
+                    // 僅在非管理員視圖（即個人查詢頁面）顯示註銷按鈕
+                    const deleteBtnHtml = !isAdminView ? `<button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷紀錄</button>` : '';
+
                     return `
                         <div class="history-item ${isIn ? 'in' : 'out'}">
                             <div class="item-info">
-                                ${showAdminExtras ? `<span class="item-user">${rec.userName}</span>` : ''}
+                                ${isAdminView ? `<span class="item-user">${rec.userName}</span>` : ''}
                                 <span class="item-type">${rec.type}</span>
                                 <span class="item-date">${group.date}</span>
+                                ${deleteBtnHtml}
                             </div>
                             <div class="item-time">${timeStr}</div>
                         </div>
@@ -548,8 +652,7 @@
 
                 html += itemsHtml;
 
-                // 如果有計算出時間，且是在管理頁面，則插入彙總條
-                if (showAdminExtras && group.totalMinutes > 0) {
+                if (group.totalMinutes > 0) {
                     const hours = Math.floor(group.totalMinutes / 60);
                     const mins = Math.round(group.totalMinutes % 60);
                     const durationStr = hours > 0 ? `${hours} 小時 ${mins} 分鐘` : `${mins} 分鐘`;
