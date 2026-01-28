@@ -76,18 +76,18 @@
             margin: 20px 0 30px 0;
         }
 
-        /* GPS 位置顯示樣式 */
         .location-badge {
             display: none;
             background: var(--primary-light);
             color: var(--primary-color);
-            padding: 8px 12px;
-            border-radius: 12px;
+            padding: 10px 16px;
+            border-radius: 14px;
             font-size: 11px;
-            font-weight: 700;
-            margin: 10px auto;
-            border: 1px solid rgba(0, 191, 165, 0.2);
+            font-weight: 800;
+            margin: 10px auto 20px auto;
+            border: 1.5px solid rgba(0, 191, 165, 0.15);
             width: fit-content;
+            letter-spacing: 0.5px;
         }
 
         .btn {
@@ -167,7 +167,22 @@
         .item-type { font-size: 14px; font-weight: 800; color: #2d3436; }
         .item-date { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
         .item-time { font-size: 18px; font-weight: 900; color: #2d3436; }
-        .item-user { font-size: 12px; color: var(--primary-color); margin-bottom: 4px; font-weight: bold; }
+
+        .action-group { display: flex; gap: 8px; margin-top: 8px; }
+        
+        .btn-map-inline {
+            font-size: 10px;
+            color: var(--primary-color);
+            background: #fff;
+            border: 1px solid var(--primary-color);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
 
         .btn-delete {
             font-size: 10px;
@@ -178,6 +193,7 @@
             border-radius: 6px;
             margin-top: 8px;
             font-weight: bold;
+            cursor: pointer;
         }
 
         .admin-header-ui {
@@ -206,27 +222,26 @@
             font-size: 14px;
             background: white;
             font-weight: 600;
+            outline: none;
         }
 
         .admin-tabs {
             display: flex;
             gap: 10px;
-            margin-bottom: 15px;
+            margin-top: 15px;
         }
         .tab-btn {
             flex: 1;
-            padding: 8px;
+            padding: 10px;
             font-size: 12px;
-            border-radius: 10px;
-            border: 1px solid #e2e8f0;
-            background: white;
-            cursor: pointer;
-        }
-        .tab-btn.active {
-            background: var(--primary-color);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.15);
             color: white;
-            border-color: var(--primary-color);
+            cursor: pointer;
+            font-weight: bold;
         }
+        .tab-btn.active { background: white; color: var(--primary-color); border-color: white; }
 
         .stats-box {
             display: grid;
@@ -244,6 +259,7 @@
         .stat-card span { display: block; font-size: 10px; color: var(--text-dim); font-weight: bold; }
         .stat-card b { font-size: 20px; }
 
+        /* 彈窗樣式 */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -252,19 +268,36 @@
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(5px);
         }
         .modal-content {
             background: white;
             padding: 30px;
-            border-radius: 24px;
-            width: 85%;
-            max-width: 320px;
+            border-radius: 28px;
+            width: 90%;
+            max-width: 380px;
             text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
         }
-        .modal-btns { display: flex; gap: 12px; margin-top: 25px; }
-        .modal-btn { flex: 1; padding: 12px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; }
-        .btn-confirm { background: var(--error-color); color: white; }
+
+        /* 地圖彈窗專用 */
+        #map-modal .modal-content {
+            padding: 15px;
+            max-width: 450px;
+        }
+        .map-container {
+            width: 100%;
+            height: 300px;
+            background: #eee;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid #eee;
+        }
+        .map-container iframe { width: 100%; height: 100%; border: none; }
+
+        .modal-btns { display: flex; gap: 12px; margin-top: 20px; }
+        .modal-btn { flex: 1; padding: 12px; border-radius: 14px; border: none; font-weight: bold; cursor: pointer; }
+        .btn-confirm { background: var(--primary-color); color: white; }
         .btn-cancel { background: #f1f5f9; color: #64748b; }
 
         #status { 
@@ -273,6 +306,7 @@
             margin-top: 15px; 
             line-height: 1.6;
             font-weight: 500;
+            white-space: pre-line;
         }
         .version {
             margin-top: 30px;
@@ -286,20 +320,9 @@
             bottom: 12px;
             right: 25px;
             font-size: 10px;
-            color: rgba(0,0,0,0.03);
+            color: rgba(0,0,0,0.03); 
             cursor: pointer;
             padding: 15px;
-        }
-        .retry-btn {
-            background: var(--error-color);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            margin-top: 10px;
-            cursor: pointer;
-            font-weight: bold;
-            display: none;
         }
     </style>
 </head>
@@ -307,13 +330,10 @@
     <div id="main-card" class="card">
         <div class="brand">原點雲</div>
         
-        <!-- 首頁：打卡區 -->
+        <!-- 打卡首頁 -->
         <div id="clock-page">
             <div id="loader" class="loader"></div>
-            
-            <!-- 新增：GPS 位置顯示區 -->
             <div id="gps-display" class="location-badge">讀取座標中...</div>
-
             <div id="btn-container" class="button-group">
                 <button class="btn" onclick="submitCheckIn('簽到')">簽到上班</button>
                 <button class="btn btn-out" onclick="submitCheckIn('簽退')">簽退下班</button>
@@ -322,29 +342,23 @@
             <button id="nav-history-btn" class="btn-history" onclick="showView('history')">查看我的紀錄</button>
         </div>
 
-        <!-- 分頁：個人紀錄區 -->
+        <!-- 個人紀錄分頁 -->
         <div id="history-page" style="display:none;">
             <div class="history-header">
                 <h3 style="margin: 0; font-size: 18px;">考勤紀錄</h3>
-                <span style="font-size: 12px; color: var(--text-dim);">個人專區</span>
-            </div>
-            <div class="controls-box" style="padding: 15px;">
-                <div class="stats-box" style="margin-top: 0;">
-                    <div class="stat-card"><span>簽到</span><b id="user-stat-in">0</b></div>
-                    <div class="stat-card"><span>簽退</span><b id="user-stat-out">0</b></div>
-                </div>
+                <span style="font-size: 12px; color: var(--text-dim);">個人考勤專區</span>
             </div>
             <div id="history-list" class="history-list">
-                <p style="text-align: center; color: #bdc3c7; font-size: 14px;">資料加載中...</p>
+                <p style="text-align: center; color: #bdc3c7; font-size: 14px;">資料載入中...</p>
             </div>
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">← 返回主頁</button>
         </div>
 
-        <!-- 分頁：管理員查詢區 -->
+        <!-- 管理後台分頁 -->
         <div id="admin-page" style="display:none;">
             <div class="admin-header-ui">
                 <h2>管理控制台</h2>
-                <div id="admin-tabs" class="admin-tabs" style="margin-top: 15px;">
+                <div class="admin-tabs">
                     <button id="tab-records" class="tab-btn active" onclick="switchAdminTab('records')">出勤明細</button>
                     <button id="tab-settings" class="tab-btn" onclick="switchAdminTab('settings')">地點設定</button>
                 </div>
@@ -352,56 +366,58 @@
             
             <div id="admin-tab-records-content">
                 <div class="controls-box">
-                    <label style="font-size: 12px; font-weight: bold; color: var(--text-dim); padding-left: 4px;">人員篩選</label>
+                    <label style="font-size: 12px; font-weight: bold; color: var(--text-dim);">人員篩選</label>
                     <select id="user-filter" class="admin-select" onchange="filterAdminHistory()">
                         <option value="all">顯示所有人</option>
                     </select>
-                    <div class="stats-box">
-                        <div class="stat-card"><span>簽到累計</span><b id="stat-in">0</b></div>
-                        <div class="stat-card"><span>簽退累計</span><b id="stat-out">0</b></div>
-                    </div>
                 </div>
                 <div id="admin-list" class="history-list">
-                    <p style="text-align: center; color: #bdc3c7; font-size: 14px;">大數據分析中...</p>
+                    <p style="text-align: center; color: #bdc3c7; font-size: 14px;">數據同步中...</p>
                 </div>
             </div>
 
             <div id="admin-tab-settings-content" style="display:none;">
                 <div class="controls-box" style="text-align: left;">
-                    <p style="font-size: 11px; color: var(--secondary-color); margin-bottom: 15px;">* 設定後員工僅能在指定距離內打卡</p>
-                    
                     <label style="font-size: 12px; font-weight: bold;">辦公地點緯度 (Lat)</label>
-                    <input type="number" id="set-lat" class="admin-input" step="any" placeholder="例如: 25.0330">
-                    
-                    <label style="font-size: 12px; font-weight: bold; margin-top: 10px; display: block;">辦公地點經度 (Lng)</label>
-                    <input type="number" id="set-lng" class="admin-input" step="any" placeholder="例如: 121.5654">
-                    
-                    <label style="font-size: 12px; font-weight: bold; margin-top: 10px; display: block;">容許誤差距離 (公尺)</label>
-                    <input type="number" id="set-radius" class="admin-input" placeholder="建議設定 200">
-
-                    <button class="btn" style="width: 100%; margin-top: 20px; font-size: 14px;" onclick="captureCurrentLocation()">使用我當前位置</button>
-                    <button class="btn" style="width: 100%; margin-top: 10px; font-size: 14px; background: var(--secondary-color);" onclick="saveOfficeSettings()">儲存地點設定</button>
+                    <input type="number" id="set-lat" class="admin-input" step="any">
+                    <label style="font-size: 12px; font-weight: bold; margin-top: 12px; display: block;">辦公地點經度 (Lng)</label>
+                    <input type="number" id="set-lng" class="admin-input" step="any">
+                    <label style="font-size: 12px; font-weight: bold; margin-top: 12px; display: block;">容許半徑 (公尺)</label>
+                    <input type="number" id="set-radius" class="admin-input">
+                    <button class="btn" style="width: 100%; margin-top: 20px; font-size: 14px;" onclick="captureCurrentLocation()">抓取目前位置</button>
+                    <button class="btn" style="width: 100%; margin-top: 10px; font-size: 14px; background: var(--secondary-color);" onclick="saveOfficeSettings()">儲存設定</button>
+                    <button id="preview-map-btn" class="btn-history" style="width: 100%; text-align: center; margin-top: 15px; display:none;" onclick="openEmbeddedMapFromSettings()">📍 內崁地圖預覽</button>
                 </div>
             </div>
-
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
         <p id="status">系統初始化...</p>
-        <button id="retry-btn" class="retry-btn" onclick="location.reload()">重新連線</button>
-        <div class="version">ORIGIN CLOUD V2.7 PRO</div>
+        <div class="version">ORIGIN CLOUD V2.9 PRO</div>
         <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
     </div>
 
-    <!-- 管理員登入彈窗 -->
+    <!-- 地圖彈窗 -->
+    <div id="map-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color:var(--primary-color); font-size: 18px;">地點位置</h3>
+            <div class="map-container">
+                <iframe id="map-iframe" src=""></iframe>
+            </div>
+            <div class="modal-btns">
+                <button class="modal-btn btn-cancel" style="flex:1;" onclick="closeMapModal()">關閉視窗</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 管理員驗證彈窗 -->
     <div id="admin-login-modal" class="modal-overlay">
         <div class="modal-content">
             <h3 style="margin-top:0; color:var(--primary-color);">管理員驗證</h3>
-            <p style="font-size:14px; color:#64748b; margin-bottom:15px;">請輸入後台訪問密碼</p>
-            <input type="password" id="admin-password-input" class="admin-select" placeholder="請輸入密碼" style="text-align:center; margin-bottom:15px; border-style: solid;">
+            <input type="password" id="admin-password-input" class="admin-input" placeholder="請輸入密碼" style="text-align:center;">
             <div class="modal-btns">
                 <button class="modal-btn btn-cancel" onclick="closeAdminLoginModal()">取消</button>
-                <button class="modal-btn btn-confirm" style="background:var(--primary-color);" onclick="verifyAdminPassword()">登入</button>
+                <button class="modal-btn btn-confirm" onclick="verifyAdminPassword()">登入</button>
             </div>
         </div>
     </div>
@@ -409,11 +425,11 @@
     <!-- 註銷確認彈窗 -->
     <div id="delete-modal" class="modal-overlay">
         <div class="modal-content">
-            <h3 style="margin-top:0; color:var(--error-color); font-size: 20px;">註銷打卡？</h3>
-            <p style="font-size:14px; color:#64748b; line-height: 1.5;">該操作將從資料庫中永久移除此紀錄。</p>
+            <h3 style="margin-top:0; color:var(--error-color);">註銷打卡？</h3>
+            <p style="font-size:14px; color:#64748b;">該操作將從雲端永久移除此紀錄。</p>
             <div class="modal-btns">
                 <button class="modal-btn btn-cancel" onclick="closeDeleteModal()">取消</button>
-                <button id="modal-confirm-btn" class="modal-btn btn-confirm">確認</button>
+                <button id="modal-confirm-btn" class="modal-btn btn-confirm" style="background:var(--error-color);">確定</button>
             </div>
         </div>
     </div>
@@ -443,26 +459,32 @@
         let pendingDeleteId = null;
         let officeSettings = null;
 
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; 
-            const φ1 = lat1 * Math.PI / 180;
-            const φ2 = lat2 * Math.PI / 180;
-            const Δφ = (lat2 - lat1) * Math.PI / 180;
-            const Δλ = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
+        // 地圖控制
+        window.openMapModal = function(lat, lng) {
+            const iframe = document.getElementById('map-iframe');
+            // 使用 Google Maps Embed 座標模式
+            iframe.src = `https://maps.google.com/maps?q=${lat},${lng}&hl=zh-TW&z=16&output=embed`;
+            document.getElementById('map-modal').style.display = 'flex';
+        };
+
+        window.closeMapModal = function() {
+            document.getElementById('map-modal').style.display = 'none';
+            document.getElementById('map-iframe').src = '';
+        };
+
+        window.openEmbeddedMapFromSettings = function() {
+            const lat = document.getElementById('set-lat').value;
+            const lng = document.getElementById('set-lng').value;
+            if (lat && lng) openMapModal(lat, lng);
+        };
 
         window.showView = function(view) {
             const clockPage = document.getElementById('clock-page');
             const historyPage = document.getElementById('history-page');
             const adminPage = document.getElementById('admin-page');
-            const status = document.getElementById('status');
             const mainCard = document.getElementById('main-card');
             const adminEntrance = document.getElementById('admin-entrance');
+            const gpsDisplay = document.getElementById('gps-display');
 
             clockPage.style.display = 'none';
             historyPage.style.display = 'none';
@@ -472,18 +494,17 @@
 
             if (view === 'history') {
                 historyPage.style.display = 'block';
-                status.style.display = 'none';
+                gpsDisplay.style.display = 'none';
                 fetchHistory();
             } else if (view === 'admin') {
                 adminPage.style.display = 'block';
-                status.style.display = 'none';
+                gpsDisplay.style.display = 'none';
                 mainCard.classList.add('admin-active');
                 adminEntrance.style.display = 'none'; 
                 switchAdminTab('records');
             } else {
                 clockPage.style.display = 'block';
-                status.style.display = 'block';
-                status.innerText = userCoords ? "定位成功，可開始打卡" : "系統連線中...";
+                if (userCoords) gpsDisplay.style.display = 'block';
             }
         };
 
@@ -493,16 +514,12 @@
             const tabRec = document.getElementById('tab-records');
             const tabSet = document.getElementById('tab-settings');
             if (tab === 'records') {
-                recordsContent.style.display = 'block';
-                settingsContent.style.display = 'none';
-                tabRec.classList.add('active');
-                tabSet.classList.remove('active');
+                recordsContent.style.display = 'block'; settingsContent.style.display = 'none';
+                tabRec.classList.add('active'); tabSet.classList.remove('active');
                 fetchAdminHistory();
             } else {
-                recordsContent.style.display = 'none';
-                settingsContent.style.display = 'block';
-                tabRec.classList.remove('active');
-                tabSet.classList.add('active');
+                recordsContent.style.display = 'none'; settingsContent.style.display = 'block';
+                tabRec.classList.remove('active'); tabSet.classList.add('active');
                 loadOfficeSettingsUI();
             }
         };
@@ -512,19 +529,11 @@
             document.getElementById('admin-login-modal').style.display = 'flex';
         };
 
-        window.closeAdminLoginModal = function() {
-            document.getElementById('admin-login-modal').style.display = 'none';
-        };
+        window.closeAdminLoginModal = function() { document.getElementById('admin-login-modal').style.display = 'none'; };
 
         window.verifyAdminPassword = function() {
             const pw = document.getElementById('admin-password-input').value;
-            if (pw === "1016") {
-                closeAdminLoginModal();
-                showView('admin');
-            } else {
-                alert("密碼錯誤");
-                closeAdminLoginModal();
-            }
+            if (pw === "1016") { closeAdminLoginModal(); showView('admin'); } else { alert("密碼錯誤"); closeAdminLoginModal(); }
         };
 
         async function loadOfficeSettingsUI() {
@@ -532,6 +541,7 @@
                 document.getElementById('set-lat').value = officeSettings.lat;
                 document.getElementById('set-lng').value = officeSettings.lng;
                 document.getElementById('set-radius').value = officeSettings.radius;
+                document.getElementById('preview-map-btn').style.display = 'block';
             }
         }
 
@@ -540,22 +550,18 @@
                 document.getElementById('set-lat').value = userCoords.lat;
                 document.getElementById('set-lng').value = userCoords.lng;
                 document.getElementById('set-radius').value = 200;
-                alert("已抓取您的當前位置作為基準");
-            } else { alert("尚未取得您的定位，請稍候"); }
+                document.getElementById('preview-map-btn').style.display = 'block';
+            } else { alert("尚未取得定位"); }
         };
 
         window.saveOfficeSettings = async function() {
             const lat = parseFloat(document.getElementById('set-lat').value);
             const lng = parseFloat(document.getElementById('set-lng').value);
             const radius = parseInt(document.getElementById('set-radius').value);
-            if (isNaN(lat) || isNaN(lng) || isNaN(radius)) { alert("請輸入有效的數字"); return; }
             try {
-                await setDoc(doc(db, "tenants/Corin_Beauty/settings", "location"), {
-                    lat, lng, radius, updatedAt: serverTimestamp()
-                });
-                officeSettings = { lat, lng, radius };
-                alert("設定儲存成功！");
-            } catch (e) { alert("儲存失敗: " + e.message); }
+                await setDoc(doc(db, "tenants/Corin_Beauty/settings", "location"), { lat, lng, radius, updatedAt: serverTimestamp() });
+                officeSettings = { lat, lng, radius }; alert("儲存成功");
+            } catch (e) { alert("失敗"); }
         };
 
         window.openDeleteModal = function(id) { pendingDeleteId = id; document.getElementById('delete-modal').style.display = 'flex'; };
@@ -564,11 +570,9 @@
         document.getElementById('modal-confirm-btn').onclick = async function() {
             if (!pendingDeleteId) return;
             try {
-                if (!auth.currentUser) await signInAnonymously(auth);
                 await deleteDoc(doc(db, "tenants/Corin_Beauty/checkins", pendingDeleteId));
-                closeDeleteModal();
-                fetchHistory();
-            } catch (e) { console.error("註銷失敗"); }
+                closeDeleteModal(); fetchHistory();
+            } catch (e) { alert("註銷失敗"); }
         };
 
         async function initSystem() {
@@ -576,74 +580,56 @@
             const gpsDisplay = document.getElementById('gps-display');
             try {
                 showView('clock');
-                statusText.innerText = "正在連線 LINE...";
                 await liff.init({ liffId: "2008997688-9iB69K6M" });
                 if (!liff.isLoggedIn()) { liff.login(); return; }
                 userProfile = await liff.getProfile();
                 await signInAnonymously(auth);
-                
                 const settingsSnap = await getDoc(doc(db, "tenants/Corin_Beauty/settings", "location"));
                 if (settingsSnap.exists()) officeSettings = settingsSnap.data();
 
-                statusText.innerText = "正在獲取定位...";
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    
-                    // 更新畫面上顯示的座標
                     gpsDisplay.style.display = "block";
                     gpsDisplay.innerText = `📍 目前位置: ${userCoords.lat.toFixed(4)}, ${userCoords.lng.toFixed(4)}`;
-
                     document.getElementById('loader').style.display = "none";
                     document.getElementById('btn-container').style.display = "flex";
                     statusText.innerText = "定位成功，可開始打卡";
                 }, (err) => {
-                    document.getElementById('loader').style.display = "none";
-                    statusText.innerText = "定位失敗: 請開啟手機 GPS";
-                    statusText.style.color = "var(--error-color)";
-                    document.getElementById('retry-btn').style.display = "inline-block";
+                    statusText.innerText = "定位失敗，請開啟 GPS";
                 }, { enableHighAccuracy: true, timeout: 10000 });
-            } catch (err) {
-                statusText.innerText = "系統連線中斷";
-                console.error(err);
-            }
+            } catch (err) { statusText.innerText = "連線中斷"; }
         }
 
         window.submitCheckIn = async function(type) {
             if (!userProfile || !userCoords) return;
-            
             if (officeSettings) {
-                const dist = getDistance(userCoords.lat, userCoords.lng, officeSettings.lat, officeSettings.lng);
+                const R = 6371e3;
+                const lat1 = userCoords.lat * Math.PI/180; const lat2 = officeSettings.lat * Math.PI/180;
+                const dLat = (officeSettings.lat - userCoords.lat) * Math.PI/180;
+                const dLng = (officeSettings.lng - userCoords.lng) * Math.PI/180;
+                const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+                const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                 if (dist > officeSettings.radius) {
-                    const statusText = document.getElementById('status');
-                    statusText.innerText = `距離辦公點過遠 (${Math.round(dist)}m)\n打卡失敗，請靠近後再試`;
-                    statusText.style.color = "var(--error-color)";
+                    document.getElementById('status').innerText = `超出範圍 (${Math.round(dist)}m)`;
+                    document.getElementById('status').style.color = "var(--error-color)";
                     return;
                 }
             }
-
             document.getElementById('btn-container').style.display = "none";
             document.getElementById('gps-display').style.display = "none";
             document.getElementById('loader').style.display = "block";
-            document.getElementById('status').innerText = `正在提交${type}...`;
-
             try {
                 const now = new Date();
-                const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-                if (!auth.currentUser) await signInAnonymously(auth);
+                const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
-                    userId: userProfile.userId,
-                    userName: userProfile.displayName,
-                    lat: userCoords.lat,
-                    lng: userCoords.lng,
-                    timestamp: serverTimestamp(),
-                    type: type,
-                    client: "Origin-Cloud-V2.7"
+                    userId: userProfile.userId, userName: userProfile.displayName,
+                    lat: userCoords.lat, lng: userCoords.lng, timestamp: serverTimestamp(), type: type, client: "V2.9"
                 });
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
                 document.getElementById('status').innerText = `[${timeStr}] ${type}成功！`;
                 setTimeout(() => liff.closeWindow(), 2500);
-            } catch (e) { document.getElementById('status').innerText = "提交失敗: " + e.message; }
+            } catch (e) { alert("提交失敗"); }
         };
 
         async function fetchHistory() {
@@ -655,8 +641,6 @@
                     const data = doc.data();
                     if (data.userId === userProfile.userId) records.push({ ...data, id: doc.id });
                 });
-                document.getElementById('user-stat-in').textContent = records.filter(r => r.type === '簽到').length;
-                document.getElementById('user-stat-out').textContent = records.filter(r => r.type === '簽退').length;
                 renderHistoryList(records, listContainer, false);
             } catch (e) { listContainer.innerHTML = '<p>讀取失敗</p>'; }
         }
@@ -666,70 +650,62 @@
             const filterSelect = document.getElementById('user-filter');
             try {
                 const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
-                allRecords = [];
-                let users = new Set();
+                allRecords = []; let users = new Set();
                 querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    allRecords.push({ ...data, id: doc.id });
+                    const data = doc.data(); allRecords.push({ ...data, id: doc.id });
                     if (data.userName) users.add(data.userName);
                 });
                 filterSelect.innerHTML = '<option value="all">顯示所有人</option>';
                 Array.from(users).sort().forEach(name => {
-                    const opt = document.createElement('option');
-                    opt.value = name; opt.textContent = name;
-                    filterSelect.appendChild(opt);
+                    const opt = document.createElement('option'); opt.value = name; opt.textContent = name; filterSelect.appendChild(opt);
                 });
                 filterAdminHistory();
             } catch (e) { listContainer.innerHTML = '<p>加載失敗</p>'; }
         }
 
         window.filterAdminHistory = function() {
-            const listContainer = document.getElementById('admin-list');
             const filterValue = document.getElementById('user-filter').value;
             let filtered = filterValue === "all" ? allRecords : allRecords.filter(r => r.userName === filterValue);
-            document.getElementById('stat-in').textContent = filtered.filter(r => r.type === '簽到').length;
-            document.getElementById('stat-out').textContent = filtered.filter(r => r.type === '簽退').length;
-            renderHistoryList(filtered, listContainer, true);
+            renderHistoryList(filtered, document.getElementById('admin-list'), true);
         };
 
-        function renderHistoryList(records, container, isAdminView) {
+        function renderHistoryList(records, container, isAdmin) {
             let groups = {};
             records.forEach(rec => {
                 if (!rec.timestamp) return;
-                const d = rec.timestamp.toDate();
-                const dateKey = d.toLocaleDateString('zh-TW');
-                const userKey = rec.userName || '未知用戶';
-                const key = `${dateKey}_${userKey}`;
-                if (!groups[key]) groups[key] = { date: dateKey, user: userKey, items: [], totalMinutes: 0 };
+                const d = rec.timestamp.toDate(); const key = `${d.toLocaleDateString('zh-TW')}_${rec.userName}`;
+                if (!groups[key]) groups[key] = { date: d.toLocaleDateString('zh-TW'), user: rec.userName, items: [], totalMinutes: 0 };
                 groups[key].items.push(rec);
             });
-            Object.values(groups).forEach(group => {
-                const ins = group.items.filter(i => i.type === '簽到');
-                const outs = group.items.filter(i => i.type === '簽退');
+            Object.values(groups).forEach(g => {
+                const ins = g.items.filter(i => i.type === '簽到'); const outs = g.items.filter(i => i.type === '簽退');
                 if (ins.length && outs.length) {
                     const firstIn = Math.min(...ins.map(i => i.timestamp.toDate()));
                     const lastOut = Math.max(...outs.map(i => i.timestamp.toDate()));
-                    if (lastOut > firstIn) group.totalMinutes = (lastOut - firstIn) / (1000 * 60);
+                    if (lastOut > firstIn) g.totalMinutes = (lastOut - firstIn) / (1000 * 60);
                 }
             });
-            const sortedGroups = Object.values(groups).sort((a, b) => new Date(b.date.replace(/\//g,'-')) - new Date(a.date.replace(/\//g,'-')));
-            if (!sortedGroups.length) { container.innerHTML = '<p style="text-align:center; color:#ccc; margin-top:20px;">尚無數據</p>'; return; }
-            container.innerHTML = sortedGroups.map(group => {
-                const itemsHtml = group.items.sort((a,b) => b.timestamp.seconds - a.timestamp.seconds).map(rec => {
+            const sorted = Object.values(groups).sort((a, b) => new Date(b.date.replace(/\//g,'-')) - new Date(a.date.replace(/\//g,'-')));
+            if (!sorted.length) { container.innerHTML = '<p style="text-align:center; color:#ccc;">尚無數據</p>'; return; }
+            container.innerHTML = sorted.map(g => {
+                const itemsHtml = g.items.sort((a,b) => b.timestamp.seconds - a.timestamp.seconds).map(rec => {
                     const timeStr = rec.timestamp.toDate().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
                     return `
                         <div class="history-item ${rec.type === '簽到' ? 'in' : 'out'}">
                             <div class="item-info">
-                                ${isAdminView ? `<span class="item-user">${rec.userName}</span>` : ''}
+                                ${isAdmin ? `<span class="item-user">${rec.userName}</span>` : ''}
                                 <span class="item-type">${rec.type}</span>
-                                <span class="item-date">${group.date}</span>
-                                ${!isAdminView ? `<button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷</button>` : ''}
+                                <span class="item-date">${g.date}</span>
+                                <div class="action-group">
+                                    <div class="btn-map-inline" onclick="openMapModal(${rec.lat}, ${rec.lng})">📍 內崁地圖</div>
+                                    ${!isAdmin ? `<button class="btn-delete" onclick="openDeleteModal('${rec.id}')">註銷</button>` : ''}
+                                </div>
                             </div>
                             <div class="item-time">${timeStr}</div>
                         </div>
                     `;
                 }).join('');
-                const durationHtml = group.totalMinutes > 0 ? `<div class="daily-summary"><span>🕒 單日總工時</span><span>${Math.floor(group.totalMinutes/60)} 小時 ${Math.round(group.totalMinutes%60)} 分</span></div>` : '';
+                const durationHtml = g.totalMinutes > 0 ? `<div class="daily-summary"><span>🕒 單日總工時</span><span>${Math.floor(g.totalMinutes/60)} 小時 ${Math.round(g.totalMinutes%60)} 分</span></div>` : '';
                 return itemsHtml + durationHtml;
             }).join('');
         }
