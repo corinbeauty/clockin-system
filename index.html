@@ -19,24 +19,25 @@
             display: flex; 
             justify-content: center; 
             align-items: center; 
-            height: 100vh; 
+            min-height: 100vh; 
             margin: 0; 
             background: var(--bg-color); 
             color: var(--text-main); 
         }
         .card { 
             background: var(--card-bg); 
-            padding: 40px; 
+            padding: 30px; 
             border-radius: 24px; 
             box-shadow: 0 15px 35px rgba(0,0,0,0.6); 
             text-align: center; 
             width: 85%; 
-            max-width: 320px; 
+            max-width: 360px; 
             border: 1px solid #333;
             transition: all 0.3s ease;
+            position: relative;
         }
         .brand { 
-            font-size: 26px; 
+            font-size: 24px; 
             font-weight: 800; 
             margin-bottom: 10px; 
             letter-spacing: 3px; 
@@ -58,18 +59,18 @@
         
         /* 按鈕區域 */
         .button-group {
-            display: none; /* 初始隱藏，定位成功後顯示 */
+            display: none;
             flex-direction: column;
             gap: 15px;
-            margin: 30px 0;
+            margin: 25px 0;
         }
         .btn {
-            padding: 15px;
+            padding: 14px;
             border-radius: 12px;
             border: 2px solid var(--primary-color);
             background: transparent;
             color: var(--primary-color);
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.2s;
@@ -80,20 +81,44 @@
             color: var(--bg-color);
             transform: scale(0.95);
         }
-        .btn-out {
-            border-color: #888;
-            color: #888;
+        .btn-history {
+            border: none;
+            color: var(--text-dim);
+            font-size: 14px;
+            text-decoration: underline;
+            background: none;
+            margin-top: 10px;
         }
-        .btn-out:active {
-            background: #888;
-            color: var(--bg-color);
+
+        /* 紀錄頁面樣式 */
+        #history-page {
+            display: none;
+            text-align: left;
         }
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+            padding-right: 5px;
+        }
+        .history-item {
+            background: #2a2a2a;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--primary-color);
+        }
+        .history-item.out {
+            border-left-color: #888;
+        }
+        .item-time { font-size: 14px; font-weight: bold; margin-bottom: 4px; }
+        .item-date { font-size: 12px; color: var(--text-dim); }
 
         .success-icon { 
             color: var(--primary-color); 
-            font-size: 64px; 
+            font-size: 50px; 
             display: none; 
-            margin: 25px 0;
+            margin: 20px 0;
             animation: scaleUp 0.4s ease-out;
         }
         @keyframes scaleUp {
@@ -103,15 +128,13 @@
         }
 
         #status { 
-            font-size: 15px; 
+            font-size: 14px; 
             color: var(--text-dim); 
-            margin-top: 20px; 
+            margin-top: 15px; 
             line-height: 1.6;
-            font-weight: 300;
         }
         .version {
-            position: absolute;
-            bottom: 20px;
+            margin-top: 20px;
             font-size: 10px;
             color: #444;
             letter-spacing: 1px;
@@ -122,25 +145,33 @@
     <div class="card">
         <div class="brand">原點雲</div>
         
-        <!-- 讀取中狀態 -->
-        <div id="loader" class="loader"></div>
-        
-        <!-- 按鈕選單 -->
-        <div id="btn-container" class="button-group">
-            <button class="btn" onclick="submitCheckIn('簽到')">簽到上班</button>
-            <button class="btn btn-out" onclick="submitCheckIn('簽退')">簽退下班</button>
+        <!-- 首頁：打卡區 -->
+        <div id="clock-page">
+            <div id="loader" class="loader"></div>
+            <div id="btn-container" class="button-group">
+                <button class="btn" onclick="submitCheckIn('簽到')">簽到上班</button>
+                <button class="btn" style="border-color: #888; color: #888;" onclick="submitCheckIn('簽退')">簽退下班</button>
+                <button class="btn-history" onclick="showView('history')">查看我的紀錄</button>
+            </div>
+            <div id="success" class="success-icon">✔</div>
         </div>
 
-        <!-- 成功狀態 -->
-        <div id="success" class="success-icon">✔</div>
+        <!-- 分頁：紀錄區 -->
+        <div id="history-page">
+            <h3 style="margin: 0; color: var(--primary-color);">最近打卡紀錄</h3>
+            <div id="history-list" class="history-list">
+                <p style="text-align: center; color: #555;">載入中...</p>
+            </div>
+            <button class="btn-history" style="width: 100%; margin-top: 20px;" onclick="showView('clock')">返回打卡頁面</button>
+        </div>
         
         <p id="status">正在取得地理原點...</p>
+        <div class="version">ORIGIN CLOUD V2.3 PRO</div>
     </div>
-    <div class="version">ORIGIN CLOUD V2.2 PRO</div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // Firebase 配置
         const firebaseConfig = {
@@ -159,9 +190,26 @@
         let userProfile = null;
         let userCoords = null;
 
+        // 畫面切換邏輯
+        window.showView = function(view) {
+            const clockPage = document.getElementById('clock-page');
+            const historyPage = document.getElementById('history-page');
+            const status = document.getElementById('status');
+
+            if (view === 'history') {
+                clockPage.style.display = 'none';
+                historyPage.style.display = 'block';
+                status.innerText = "僅顯示您的個人紀錄";
+                fetchHistory();
+            } else {
+                clockPage.style.display = 'block';
+                historyPage.style.display = 'none';
+                status.innerText = userCoords ? "定位完成，請選擇打卡類型" : "正在取得地理原點...";
+            }
+        };
+
         async function initSystem() {
             try {
-                // 初始化 LIFF
                 await liff.init({ liffId: "2008997688-9iB69K6M" });
                 
                 if (!liff.isLoggedIn()) {
@@ -171,26 +219,21 @@
 
                 userProfile = await liff.getProfile();
                 
-                // 執行定位
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     userCoords = {
                         lat: pos.coords.latitude,
                         lng: pos.coords.longitude
                     };
 
-                    // 定位成功後，隱藏讀取條，顯示按鈕
                     document.getElementById('loader').style.display = "none";
                     document.getElementById('btn-container').style.display = "flex";
                     document.getElementById('status').innerText = "定位完成，請選擇打卡類型";
 
                 }, (err) => {
                     document.getElementById('loader').style.display = "none";
-                    document.getElementById('status').innerText = "定位失敗\n請確認手機 GPS 權限已開啟";
+                    document.getElementById('status').innerText = "定位失敗，請確認 GPS 已開啟";
                     document.getElementById('status').style.color = "var(--error-color)";
-                }, { 
-                    enableHighAccuracy: true, 
-                    timeout: 8000 
-                });
+                }, { enableHighAccuracy: true, timeout: 8000 });
 
             } catch (err) {
                 console.error(err);
@@ -198,43 +241,89 @@
             }
         }
 
-        // 提交打卡紀錄
+        // 提交打卡
         window.submitCheckIn = async function(type) {
             if (!userProfile || !userCoords) return;
 
-            // 顯示處理中狀態
             document.getElementById('btn-container').style.display = "none";
             document.getElementById('loader').style.display = "block";
             document.getElementById('status').innerText = `正在提交${type}紀錄...`;
 
             try {
-                // 寫入 Firebase
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('zh-TW', { hour12: false });
+
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId,
                     userName: userProfile.displayName,
                     lat: userCoords.lat,
                     lng: userCoords.lng,
                     timestamp: serverTimestamp(),
-                    type: type, // '簽到' 或 '簽退'
-                    client: "Origin-Cloud-Manual"
+                    type: type,
+                    client: "Origin-Cloud-V2.3"
                 });
 
-                // 成功反饋
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
-                document.getElementById('status').innerText = `${type}成功！\n系統即將關閉`;
+                document.getElementById('status').innerText = `[${timeString}] ${type}成功！\n系統即將自動關閉`;
                 document.getElementById('status').style.color = "var(--primary-color)";
                 
-                setTimeout(() => liff.closeWindow(), 2000);
+                setTimeout(() => liff.closeWindow(), 3500);
 
             } catch (e) {
                 console.error(e);
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('btn-container').style.display = "flex";
-                document.getElementById('status').innerText = "寫入資料庫失敗，請重試";
+                document.getElementById('status').innerText = "寫入失敗，請重試";
                 document.getElementById('status').style.color = "var(--error-color)";
             }
         };
+
+        // 讀取歷史紀錄
+        async function fetchHistory() {
+            const listContainer = document.getElementById('history-list');
+            listContainer.innerHTML = '<p style="text-align: center; color: #555;">載入紀錄中...</p>';
+
+            try {
+                // 為符合「禁止複雜查詢」規則，我們獲取集合後在前端過濾 userId
+                const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
+                
+                let records = [];
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // 關鍵：只篩選當前使用者的紀錄
+                    if (data.userId === userProfile.userId) {
+                        records.push(data);
+                    }
+                });
+
+                // 按時間由新到舊排序
+                records.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+
+                if (records.length === 0) {
+                    listContainer.innerHTML = '<p style="text-align: center; color: #555;">尚無打卡紀錄</p>';
+                    return;
+                }
+
+                listContainer.innerHTML = records.map(rec => {
+                    const dateObj = rec.timestamp ? rec.timestamp.toDate() : new Date();
+                    const dateStr = dateObj.toLocaleDateString('zh-TW');
+                    const timeStr = dateObj.toLocaleTimeString('zh-TW', { hour12: false });
+                    const isOut = rec.type === '簽退';
+                    
+                    return `
+                        <div class="history-item ${isOut ? 'out' : ''}">
+                            <div class="item-time">${rec.type}：${timeStr}</div>
+                            <div class="item-date">${dateStr}</div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (e) {
+                console.error(e);
+                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">讀取失敗</p>';
+            }
+        }
 
         window.onload = initSystem;
     </script>
