@@ -128,7 +128,6 @@
             overflow-y: auto;
             padding-right: 8px;
         }
-        /* 滾動條美化 */
         .history-list::-webkit-scrollbar { width: 4px; }
         .history-list::-webkit-scrollbar-track { background: #f1f1f1; }
         .history-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
@@ -155,7 +154,6 @@
             background: var(--secondary-light);
         }
 
-        /* 每日彙總樣式 */
         .daily-summary {
             background: #fff;
             border: 1px dashed var(--primary-color);
@@ -177,7 +175,6 @@
         .item-time { font-size: 15px; font-weight: 800; color: #2d3436; }
         .item-user { font-size: 11px; color: var(--primary-color); margin-bottom: 2px; font-weight: bold; }
 
-        /* 註銷按鈕 */
         .btn-delete {
             font-size: 10px;
             color: var(--error-color);
@@ -195,7 +192,6 @@
             color: white;
         }
 
-        /* 統計與控制項樣式 */
         .controls-box {
             background: #f1f2f6;
             padding: 18px;
@@ -229,7 +225,6 @@
         .stat-card span { display: block; font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
         .stat-card b { font-size: 16px; color: var(--text-main); }
 
-        /* 自定義彈窗 */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -300,6 +295,17 @@
             color: #ecf0f1;
             cursor: pointer;
         }
+        .retry-btn {
+            background: var(--error-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -361,7 +367,8 @@
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: bold;" onclick="showView('clock')">← 退出管理模式</button>
         </div>
         
-        <p id="status">正在取得地理原點...</p>
+        <p id="status">正在初始化系統...</p>
+        <button id="retry-btn" class="retry-btn" onclick="location.reload()">重新連線</button>
         <div class="version">ORIGIN CLOUD V2.4 PRO</div>
         <div class="admin-link" onclick="handleAdminLogin()">ADMIN</div>
     </div>
@@ -452,66 +459,77 @@
         document.getElementById('modal-confirm-btn').onclick = async function() {
             if (!pendingDeleteId) return;
             try {
-                // 註銷前強制檢查連線
-                if (!auth.currentUser) {
-                    await signInAnonymously(auth);
-                }
-                
+                if (!auth.currentUser) await signInAnonymously(auth);
                 await deleteDoc(doc(db, "tenants/Corin_Beauty/checkins", pendingDeleteId));
                 closeDeleteModal();
-                fetchHistory(); // 重新整理
+                fetchHistory();
             } catch (e) {
                 console.error("註銷失敗", e);
-                // 顯示精確的 Firebase 錯誤代碼
-                alert("註銷失敗：" + (e.code || "unknown") + "\n原因：" + e.message);
+                alert("註銷失敗：" + (e.code || e.message));
             }
         };
 
         async function initSystem() {
+            const statusText = document.getElementById('status');
+            const loader = document.getElementById('loader');
+            const retryBtn = document.getElementById('retry-btn');
+
             try {
-                // Step 1: LIFF Init
-                await liff.init({ liffId: "2008997688-9iB69K6M" }).catch(e => { throw new Error("LIFF 初始化失敗: " + e.message); });
+                // 階段 1: LINE LIFF 初始化
+                statusText.innerText = "正在連線至 LINE 平台...";
+                await liff.init({ liffId: "2008997688-9iB69K6M" }).catch(e => { 
+                    throw new Error("LINE 授權失效: " + e.message + "\n請確認網址是否於 LINE 內開啟。"); 
+                });
                 
                 if (!liff.isLoggedIn()) {
                     liff.login();
                     return;
                 }
                 
-                userProfile = await liff.getProfile().catch(e => { throw new Error("取得 LINE 個人資料失敗: " + e.message); });
-                
-                // Step 2: Firebase Auth & State Watch
-                onAuthStateChanged(auth, (user) => {
-                    if (user) console.log("Firebase 驗證成功:", user.uid);
+                userProfile = await liff.getProfile().catch(e => { 
+                    throw new Error("取得個人資料失敗: " + e.message); 
                 });
-                await signInAnonymously(auth).catch(e => { throw new Error("資料庫連線驗證失敗: " + e.message); });
                 
-                // Step 3: Geolocation
+                // 階段 2: Firebase 匿名登入
+                statusText.innerText = "正在同步雲端資料庫...";
+                await signInAnonymously(auth).catch(e => { 
+                    throw new Error("資料庫連線失敗: " + (e.code === 'auth/operation-not-allowed' ? "請在 Firebase 開啟匿名登入功能" : e.message)); 
+                });
+                
+                // 階段 3: 定位取得
+                statusText.innerText = "正在取得地理原點...";
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    document.getElementById('loader').style.display = "none";
+                    loader.style.display = "none";
                     document.getElementById('btn-container').style.display = "flex";
-                    document.getElementById('status').innerText = "定位完成，請選擇打卡類型";
-                    document.getElementById('status').style.color = "var(--text-dim)";
+                    statusText.innerText = "定位完成，請選擇打卡類型";
+                    statusText.style.color = "var(--text-dim)";
                 }, (err) => {
-                    document.getElementById('loader').style.display = "none";
-                    document.getElementById('status').innerText = "定位失敗，請確認 GPS 已開啟\n(" + err.message + ")";
-                    document.getElementById('status').style.color = "var(--error-color)";
-                }, { enableHighAccuracy: true, timeout: 8000 });
+                    loader.style.display = "none";
+                    statusText.innerText = "定位失敗: 請確認手機 GPS 已開啟\n(錯誤代碼: " + err.code + ")";
+                    statusText.style.color = "var(--error-color)";
+                    retryBtn.style.display = "inline-block";
+                }, { enableHighAccuracy: true, timeout: 10000 });
                 
             } catch (err) {
                 console.error(err);
-                document.getElementById('loader').style.display = "none";
-                document.getElementById('status').innerText = "系統連線中斷\n" + err.message;
-                document.getElementById('status').style.color = "var(--error-color)";
+                loader.style.display = "none";
+                statusText.innerText = "系統連線中斷\n" + err.message;
+                statusText.style.color = "var(--error-color)";
+                retryBtn.style.display = "inline-block";
             }
         }
 
         window.submitCheckIn = async function(type) {
             if (!userProfile || !userCoords) return;
-            document.getElementById('btn-container').style.display = "none";
+            const btnGroup = document.getElementById('btn-container');
+            const loader = document.getElementById('loader');
+            const statusText = document.getElementById('status');
+
+            btnGroup.style.display = "none";
             document.getElementById('nav-history-btn').style.display = "none";
-            document.getElementById('loader').style.display = "block";
-            document.getElementById('status').innerText = `正在提交${type}紀錄...`;
+            loader.style.display = "block";
+            statusText.innerText = `正在提交${type}紀錄...`;
 
             try {
                 const now = new Date();
@@ -527,18 +545,19 @@
                     type: type,
                     client: "Origin-Cloud-V2.4"
                 });
-                document.getElementById('loader').style.display = "none";
+                
+                loader.style.display = "none";
                 document.getElementById('success').style.display = "block";
-                document.getElementById('status').innerText = `[${timeString}] ${type}成功！`;
-                document.getElementById('status').style.color = "var(--primary-color)";
+                statusText.innerText = `[${timeString}] ${type}成功！`;
+                statusText.style.color = "var(--primary-color)";
                 setTimeout(() => liff.closeWindow(), 3000);
             } catch (e) {
                 console.error(e);
-                document.getElementById('loader').style.display = "none";
-                document.getElementById('btn-container').style.display = "flex";
+                loader.style.display = "none";
+                btnGroup.style.display = "flex";
                 document.getElementById('nav-history-btn').style.display = "inline-block";
-                document.getElementById('status').innerText = "寫入失敗，請重試\n(" + e.message + ")";
-                document.getElementById('status').style.color = "var(--error-color)";
+                statusText.innerText = "提交失敗: " + e.message;
+                statusText.style.color = "var(--error-color)";
             }
         };
 
@@ -559,14 +578,14 @@
                 document.getElementById('user-stat-out').textContent = countOut;
                 renderHistoryList(records, listContainer, false);
             } catch (e) {
-                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">讀取失敗\n' + e.message + '</p>';
+                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">讀取失敗: ' + e.message + '</p>';
             }
         }
 
         async function fetchAdminHistory() {
             const listContainer = document.getElementById('admin-list');
             const filterSelect = document.getElementById('user-filter');
-            listContainer.innerHTML = '<p style="text-align: center; color: #bdc3c7;">讀取全局數據中...</p>';
+            listContainer.innerHTML = '<p style="text-align: center; color: #bdc3c7;">正在獲取數據...</p>';
             try {
                 const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
                 allRecords = [];
@@ -585,7 +604,7 @@
                 });
                 filterAdminHistory();
             } catch (e) {
-                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">管理者讀取失敗\n' + e.message + '</p>';
+                listContainer.innerHTML = '<p style="text-align: center; color: var(--error-color);">獲取失敗: ' + e.message + '</p>';
             }
         }
 
@@ -635,7 +654,7 @@
             });
 
             if (sortedGroups.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #bdc3c7; margin-top: 30px;">尚與資料庫同步中或尚無紀錄</p>';
+                container.innerHTML = '<p style="text-align: center; color: #bdc3c7; margin-top: 30px;">尚無紀錄</p>';
                 return;
             }
 
