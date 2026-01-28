@@ -6,16 +6,19 @@
     <title>原點雲打卡系統</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #121212; color: white; }
-        .card { background: #1e1e1e; padding: 30px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); text-align: center; width: 80%; max-width: 300px; }
-        .loader { border: 3px solid #333; border-top: 3px solid #00ffcc; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        :root { --primary-color: #00ffcc; --bg-color: #121212; --card-bg: #1e1e1e; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: var(--bg-color); color: white; }
+        .card { background: var(--card-bg); padding: 40px; border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); text-align: center; width: 85%; max-width: 320px; border: 1px solid #333; }
+        .brand { font-size: 24px; font-weight: bold; margin-bottom: 10px; letter-spacing: 2px; color: var(--primary-color); }
+        .loader { border: 3px solid #333; border-top: 3px solid var(--primary-color); border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin: 25px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .success-icon { color: #00ffcc; font-size: 48px; display: none; }
+        .success-icon { color: var(--primary-color); font-size: 60px; display: none; margin: 20px 0; }
+        #status { font-size: 14px; color: #aaa; margin-top: 15px; line-height: 1.6; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2 style="margin-top:0;">原點雲</h2>
+        <div class="brand">原點雲</div>
         <div id="loader" class="loader"></div>
         <div id="success" class="success-icon">✔</div>
         <p id="status">正在驗證地理原點...</p>
@@ -41,8 +44,8 @@
 
         async function init() {
             try {
-                // 初始化您的 LIFF
-                await liff.init({ liffId: "2004815273" });
+                // 初始化您的正式 LIFF ID
+                await liff.init({ liffId: "2008997688-9iB69K6M" });
                 
                 if (!liff.isLoggedIn()) {
                     liff.login();
@@ -51,31 +54,32 @@
 
                 const profile = await liff.getProfile();
 
-                // 請求 GPS
+                // 請求精準 GPS 位置
                 navigator.geolocation.getCurrentPosition(async (pos) => {
-                    // 直接寫入 Firebase 租戶路徑
+                    // 寫入 Firebase 租戶路徑 (V2.1 商用版)
                     await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                         userId: profile.userId,
                         userName: profile.displayName,
                         lat: pos.coords.latitude,
                         lng: pos.coords.longitude,
                         timestamp: serverTimestamp(),
-                        version: "V2.0-Production"
+                        client: "Origin-Cloud-V2.1"
                     });
 
-                    // UI 反饋
+                    // UI 更新成功狀態
                     document.getElementById('loader').style.display = "none";
                     document.getElementById('success').style.display = "block";
-                    document.getElementById('status').innerText = "定位成功，歡迎上班！";
+                    document.getElementById('status').innerText = "定位成功，歡迎打卡！\n窗口將自動關閉";
                     
                     setTimeout(() => liff.closeWindow(), 2000);
                 }, (err) => {
-                    document.getElementById('status').innerText = "定位失敗：請開啟位置權限";
+                    document.getElementById('status').innerText = "定位失敗：請檢查手機 GPS 權限是否開啟";
+                    document.getElementById('loader').style.display = "none";
                 }, { enableHighAccuracy: true });
 
             } catch (err) {
-                document.getElementById('status').innerText = "系統初始化失敗";
-                console.error(err);
+                document.getElementById('status').innerText = "系統初始化失敗，請稍後再試";
+                console.error("LIFF Init Error:", err);
             }
         }
         init();
