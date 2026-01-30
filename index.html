@@ -309,6 +309,7 @@
     <div id="main-card" class="card">
         <div class="brand">原點雲</div>
         
+        <!-- 打卡首頁 -->
         <div id="clock-page">
             <div id="loader" class="loader"></div>
             <div id="status">系統初始化中...</div>
@@ -324,6 +325,7 @@
             <button id="nav-history-btn" class="btn-history" onclick="showView('history')">查看我的紀錄</button>
         </div>
 
+        <!-- 個人紀錄分頁 -->
         <div id="history-page" style="display:none;">
             <div class="history-header">
                 <h3 style="margin: 0; font-size: 18px;">考勤紀錄</h3>
@@ -336,6 +338,7 @@
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">← 返回主頁</button>
         </div>
 
+        <!-- 管理後台分頁 -->
         <div id="admin-page" style="display:none;">
             <div class="admin-header-ui">
                 <h2>管理控制台</h2>
@@ -382,7 +385,8 @@
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
-        <div class="version">ORIGIN CLOUD V4.0 PRO</div>
+        <!-- 版本號更新：V26.1.30.14 -->
+        <div class="version">ORIGIN CLOUD V26.1.30.14</div>
         <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
     </div>
 
@@ -451,6 +455,9 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+        // 定義全局版本號
+        const APP_VERSION = "V26.1.30.14";
+
         let userProfile = null;
         let userCoords = null;
         let allRecords = []; 
@@ -514,30 +521,19 @@
             }
         }
 
-        /**
-         * 修正後的抓取目前位置功能
-         * 點擊後主動重新發起定位請求，確保精確度
-         */
         window.captureCurrentLocation = function() {
             const btn = document.getElementById('capture-btn');
-            const originalText = btn.innerText;
             btn.innerText = "正在定位...";
             btn.disabled = true;
-
             navigator.geolocation.getCurrentPosition((pos) => {
                 userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                 document.getElementById('set-lat').value = userCoords.lat.toFixed(6);
                 document.getElementById('set-lng').value = userCoords.lng.toFixed(6);
                 document.getElementById('set-radius').value = 200;
                 updateAdminMapPreview(userCoords.lat, userCoords.lng);
-                btn.innerText = originalText;
-                btn.disabled = false;
-                alert("已成功抓取當前位置！");
-            }, (err) => {
-                btn.innerText = originalText;
-                btn.disabled = false;
-                alert("定位失敗，請確保已開啟 GPS 且允許權限。\n(錯誤代碼: " + err.code + ")");
-            }, { enableHighAccuracy: true, timeout: 10000 });
+                btn.innerText = "抓取我目前位置"; btn.disabled = false;
+                alert("已抓取位置！");
+            }, (err) => { btn.innerText = "抓取我目前位置"; btn.disabled = false; alert("定位失敗"); }, { enableHighAccuracy: true, timeout: 10000 });
         };
 
         window.searchAddress = async function() {
@@ -553,7 +549,7 @@
                     document.getElementById('set-lat').value = lat.toFixed(6);
                     document.getElementById('set-lng').value = lng.toFixed(6);
                     updateAdminMapPreview(lat, lng);
-                } else { alert("找不到該地址"); }
+                } else { alert("找不到地址"); }
             } catch (e) { alert("搜尋服務不可用"); }
         };
 
@@ -584,7 +580,7 @@
 
         function renderLocationList() {
             const container = document.getElementById('location-list-ui');
-            if (officeLocations.length === 0) { container.innerHTML = '<p style="font-size:12px; color:#ccc; text-align:center; padding: 20px;">尚無設定據點</p>'; return; }
+            if (officeLocations.length === 0) { container.innerHTML = '<p style="font-size:12px; color:#ccc; text-align:center; padding: 20px;">尚無據點</p>'; return; }
             container.innerHTML = officeLocations.map(l => `
                 <div class="location-card">
                     <div class="loc-info">
@@ -617,7 +613,8 @@
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId, userName: userProfile.displayName, locationName: locName,
                     lat: userCoords ? userCoords.lat : 0, lng: userCoords ? userCoords.lng : 0,
-                    timestamp: manualTimestamp, createdAt: serverTimestamp(), type: type, isManual: true, client: "V4.0-Manual"
+                    timestamp: manualTimestamp, createdAt: serverTimestamp(), type: type, isManual: true, 
+                    client: APP_VERSION + "-Manual" // 同步版本號
                 });
                 closeManualModal(); alert("補登成功！"); fetchHistory();
             } catch (e) { alert("補登失敗"); }
@@ -674,7 +671,8 @@
                 const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
                 await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
                     userId: userProfile.userId, userName: userProfile.displayName, locationName: currentOfficeName,
-                    lat: userCoords.lat, lng: userCoords.lng, timestamp: serverTimestamp(), type: type, client: "V4.0"
+                    lat: userCoords.lat, lng: userCoords.lng, timestamp: serverTimestamp(), type: type, 
+                    client: APP_VERSION // 同步版本號
                 });
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
@@ -719,21 +717,32 @@
             let groups = {};
             records.forEach(rec => {
                 if (!rec.timestamp) return;
-                const d = rec.timestamp.toDate(); const dateKey = d.toLocaleDateString('zh-TW'); const userKey = rec.userName || '未知用戶'; const key = `${dateKey}_${userKey}`;
-                if (!groups[key]) groups[key] = { date: dateKey, user: userKey, items: [], totalMinutes: 0, latestTimestamp: 0 };
-                groups[key].items.push(rec);
-                if (rec.timestamp.seconds > groups[key].latestTimestamp) groups[key].latestTimestamp = rec.timestamp.seconds;
+                const d = rec.timestamp.toDate(); 
+                const dateKey = d.toLocaleDateString('zh-TW'); 
+                const userKey = rec.userName || '未知用戶'; 
+                const locKey = rec.locationName || '未知據點';
+                const groupKey = `${dateKey}_${userKey}_${locKey}`;
+
+                if (!groups[groupKey]) {
+                    groups[groupKey] = { date: dateKey, user: userKey, location: locKey, items: [], totalMinutes: 0, latestTimestamp: 0 };
+                }
+                groups[groupKey].items.push(rec);
+                if (rec.timestamp.seconds > groups[groupKey].latestTimestamp) groups[groupKey].latestTimestamp = rec.timestamp.seconds;
             });
+
             Object.values(groups).forEach(g => {
-                const ins = g.items.filter(i => i.type === '簽到'); const outs = g.items.filter(i => i.type === '簽退');
+                const ins = g.items.filter(i => i.type === '簽到'); 
+                const outs = g.items.filter(i => i.type === '簽退');
                 if (ins.length && outs.length) {
                     const firstIn = Math.min(...ins.map(i => i.timestamp.toDate()));
                     const lastOut = Math.max(...outs.map(i => i.timestamp.toDate()));
                     if (lastOut > firstIn) g.totalMinutes = (lastOut - firstIn) / (1000 * 60);
                 }
             });
+
             const sorted = Object.values(groups).sort((a, b) => b.latestTimestamp - a.latestTimestamp);
             if (!sorted.length) { container.innerHTML = '<p style="text-align:center; color:#ccc; margin-top:20px;">尚無紀錄</p>'; return; }
+
             container.innerHTML = sorted.map(g => {
                 const itemsHtml = g.items.sort((a,b) => b.timestamp.seconds - a.timestamp.seconds).map(rec => {
                     const timeStr = rec.timestamp.toDate().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -751,7 +760,12 @@
                             </div>
                         </div>`;
                 }).join('');
-                const durationHtml = g.totalMinutes > 0 ? `<div class="daily-summary"><span>🕒 單日總工時</span><span>${Math.floor(g.totalMinutes/60)} 小時 ${Math.round(g.totalMinutes%60)} 分</span></div>` : '';
+                
+                const durationHtml = g.totalMinutes > 0 ? `
+                    <div class="daily-summary">
+                        <span>🕒 此據點總工時</span>
+                        <span>${Math.floor(g.totalMinutes/60)} 小時 ${Math.round(g.totalMinutes%60)} 分</span>
+                    </div>` : '';
                 return itemsHtml + durationHtml;
             }).join('');
         }
@@ -760,4 +774,3 @@
     </script>
 </body>
 </html>
-
