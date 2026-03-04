@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#f7f9fc">
-    <title>原點雲打卡系統</title>
+    <title>原點雲打卡系統 - V26.3.0</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         :root { 
@@ -163,10 +163,19 @@
             font-size: 13px;
             color: var(--primary-color);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            gap: 5px;
             font-weight: 800;
+            text-align: left;
         }
+        
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 2px;
+        }
+        .summary-label { opacity: 0.7; font-weight: normal; font-size: 11px; }
 
         .item-info { display: flex; flex-direction: column; text-align: left; width: 100%; }
         .item-type { font-size: 14px; font-weight: 800; color: #2d3436; }
@@ -199,6 +208,16 @@
             border-radius: 4px;
             margin-left: 5px;
             font-weight: normal;
+        }
+
+        .break-tag {
+            font-size: 9px;
+            background: #ffeaa7;
+            color: #d63031;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 5px;
+            font-weight: bold;
         }
 
         .btn-delete {
@@ -235,6 +254,7 @@
             border-radius: 24px;
             margin-bottom: 20px;
             border: 1px solid #edf2f7;
+            text-align: left;
         }
         
         .admin-input, .form-select {
@@ -285,6 +305,7 @@
         }
         .modal-content {
             background: white; padding: 25px; border-radius: 28px; width: 90%; max-width: 380px; text-align: center;
+            max-height: 85vh; overflow-y: auto;
         }
 
         .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
@@ -292,7 +313,19 @@
 
         #status { font-size: 13px; color: var(--text-dim); margin-top: 10px; line-height: 1.6; white-space: pre-line; }
         .version { margin-top: 20px; font-size: 10px; color: #bdc3c7; letter-spacing: 1px; font-weight: bold; }
-        .admin-link { position: absolute; bottom: 10px; right: 20px; font-size: 10px; color: rgba(0,0,0,0.03); cursor: pointer; padding: 10px; }
+        
+        .admin-link { 
+            position: absolute; 
+            bottom: 10px; 
+            right: 20px; 
+            font-size: 11px; 
+            color: #bdc3c7; 
+            cursor: pointer; 
+            padding: 10px; 
+            font-weight: bold;
+            opacity: 0.6;
+        }
+        .admin-link:hover { opacity: 1; color: var(--primary-color); }
         
         .admin-map-preview {
             width: 100%; height: 200px; background: #eee; border-radius: 15px; margin-top: 15px; overflow: hidden; display: none; border: 1px solid #e2e8f0;
@@ -303,6 +336,20 @@
             color: var(--primary-color); font-size: 55px; display: none; margin: 20px 0; animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
         @keyframes bounceIn { 0% { opacity: 0; transform: scale(0.3); } 50% { opacity: 1; transform: scale(1.05); } 100% { transform: scale(1); } }
+        
+        .label-text { font-size: 11px; font-weight: bold; color: var(--text-dim); margin-bottom: 4px; display: block; }
+
+        /* 新增：工時計算按鈕樣式 */
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .btn-calc-mini { 
+            background: var(--primary-color); color: white; border: none; padding: 6px 12px; border-radius: 10px; 
+            font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0, 191, 165, 0.2);
+        }
+
+        .report-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 15px; text-align: left; }
+        .report-table th { background: #f8fafc; padding: 8px; border-bottom: 2px solid #edf2f7; color: var(--text-dim); }
+        .report-table td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+        .report-total { background: var(--primary-light); font-weight: bold; color: var(--primary-color); }
     </style>
 </head>
 <body>
@@ -317,21 +364,43 @@
             <div id="main-map-box" class="main-map-container">
                 <iframe id="main-map-iframe" src=""></iframe>
             </div>
+            
             <div id="btn-container" class="button-group">
+                <div style="text-align: left; margin-bottom: 10px; background: #f8fafc; padding: 10px; border-radius: 12px; border: 1px solid #edf2f7;">
+                    <label class="label-text">📍 簽退前請選擇本日總休息時間：</label>
+                    <select id="break-selector" class="form-select" style="margin-top: 4px; padding: 10px; border-color: var(--primary-light);">
+                        <option value="0">無休息</option>
+                        <option value="5">5 分鐘</option>
+                        <option value="10">10 分鐘</option>
+                        <option value="15">15 分鐘</option>
+                        <option value="20">20 分鐘</option>
+                        <option value="25">25 分鐘</option>
+                        <option value="30">30 分鐘</option>
+                        <option value="45">45 分鐘</option>
+                        <option value="60">1 小時 (60分)</option>
+                        <option value="75">1 小時 15 分</option>
+                        <option value="90">1.5 小時 (90分)</option>
+                        <option value="120">2 小時 (120分)</option>
+                    </select>
+                </div>
                 <button class="btn" onclick="submitCheckIn('簽到')">簽到上班</button>
                 <button class="btn btn-out" onclick="submitCheckIn('簽退')">簽退下班</button>
             </div>
+            
             <div id="success" class="success-icon">✔</div>
             <button id="nav-history-btn" class="btn-history" onclick="showView('history')">查看我的紀錄</button>
         </div>
 
         <!-- 個人紀錄分頁 -->
         <div id="history-page" style="display:none;">
-            <div class="history-header">
-                <h3 style="margin: 0; font-size: 18px;">考勤紀錄</h3>
-                <span style="font-size: 12px; color: var(--text-dim);">個人考勤專區</span>
+            <div class="header-flex">
+                <div style="text-align: left;">
+                    <h3 style="margin: 0; font-size: 18px;">考勤紀錄</h3>
+                    <span style="font-size: 11px; color: var(--text-dim);">個人考勤專區</span>
+                </div>
+                <button class="btn-calc-mini" onclick="openRangeCalcModal()">工時計算</button>
             </div>
-            <button class="btn btn-secondary" style="width: 100%; margin: 15px 0; font-size: 14px; padding: 12px;" onclick="openManualModal()">+ 申請補登打卡</button>
+            <button class="btn btn-secondary" style="width: 100%; margin: 5px 0 15px 0; font-size: 14px; padding: 12px;" onclick="openManualModal()">+ 申請補登打卡</button>
             <div id="history-list" class="history-list">
                 <p style="text-align: center; color: #bdc3c7; font-size: 14px;">資料載入中...</p>
             </div>
@@ -349,9 +418,23 @@
             </div>
             <div id="admin-tab-records-content">
                 <div class="controls-box">
+                    <label class="label-text">篩選人員</label>
                     <select id="user-filter" class="admin-input" onchange="filterAdminHistory()" style="margin-top:0;">
                         <option value="all">顯示所有人</option>
                     </select>
+                    <div style="display: flex; gap: 8px; margin-top: 10px;">
+                        <div style="flex:1">
+                            <label class="label-text">起始日期</label>
+                            <input type="date" id="filter-date-start" class="admin-input" onchange="filterAdminHistory()" style="margin-top:0;">
+                        </div>
+                        <div style="flex:1">
+                            <label class="label-text">結束日期</label>
+                            <input type="date" id="filter-date-end" class="admin-input" onchange="filterAdminHistory()" style="margin-top:0;">
+                        </div>
+                    </div>
+                </div>
+                <div id="admin-summary-box" class="daily-summary" style="border-style: solid; background: var(--primary-light); display:none;">
+                    <div class="summary-row"><span>總計結算淨工時：</span><span id="admin-total-hours">0 小時</span></div>
                 </div>
                 <div id="admin-list" class="history-list">
                     <p style="text-align: center; color: #bdc3c7; font-size: 14px;">數據同步中...</p>
@@ -385,9 +468,33 @@
             <button class="btn-history" style="width: 100%; margin-top: 25px; text-align: center; font-weight: 800;" onclick="showView('clock')">登出管理模式</button>
         </div>
         
-        <!-- 版本號更新：V26.1.30.14 -->
-        <div class="version">ORIGIN CLOUD V26.1.30.14</div>
-        <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN</div>
+        <!-- 版本號更新：V26.3.0 -->
+        <div class="version">ORIGIN CLOUD V26.3.0</div>
+        <div id="admin-entrance" class="admin-link" onclick="openAdminLoginModal()">ADMIN PANEL</div>
+    </div>
+
+    <!-- 區間工時計算彈窗 -->
+    <div id="range-calc-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 440px;">
+            <h3 style="margin: 0 0 10px 0; color: var(--primary-color); font-size: 18px;">區間工時計算結算</h3>
+            <div style="text-align: left;">
+                <div style="display: flex; gap: 8px;">
+                    <div style="flex:1">
+                        <label class="label-text">起始日</label>
+                        <input type="date" id="calc-start" class="admin-input">
+                    </div>
+                    <div style="flex:1">
+                        <label class="label-text">結束日</label>
+                        <input type="date" id="calc-end" class="admin-input">
+                    </div>
+                </div>
+                <button class="btn" style="width: 100%; margin-top: 15px; padding: 10px; font-size: 14px;" onclick="generateRangeReport()">開始產出明細</button>
+            </div>
+            <div id="report-result" style="margin-top: 20px;"></div>
+            <div class="modal-btns">
+                <button class="modal-btn" style="background:#f1f5f9; color:#64748b;" onclick="closeRangeCalcModal()">關閉</button>
+            </div>
+        </div>
     </div>
 
     <!-- 補登打卡彈窗 -->
@@ -395,14 +502,20 @@
         <div class="modal-content">
             <h3 style="margin: 0 0 15px 0; color: var(--secondary-color); font-size: 20px;">申請補登打卡</h3>
             <div style="text-align: left;">
-                <label style="font-size: 11px; font-weight: bold; color: var(--text-dim);">選擇打卡類型</label>
+                <label class="label-text">選擇打卡類型</label>
                 <select id="manual-type" class="form-select">
                     <option value="簽到">補上班 (簽到)</option>
                     <option value="簽退">補下班 (簽退)</option>
                 </select>
-                <label style="font-size: 11px; font-weight: bold; color: var(--text-dim); margin-top: 12px; display: block;">選擇打卡日期與時間</label>
+                <label class="label-text" style="margin-top: 12px;">選擇打卡日期與時間</label>
                 <input type="datetime-local" id="manual-time" class="admin-input">
-                <label style="font-size: 11px; font-weight: bold; color: var(--text-dim); margin-top: 12px; display: block;">選擇據點</label>
+                <label class="label-text" style="margin-top: 12px;">休息時間 (若為補簽退)</label>
+                <select id="manual-break" class="form-select">
+                    <option value="0">無休息</option>
+                    <option value="30">30 分鐘</option>
+                    <option value="60">60 分鐘</option>
+                </select>
+                <label class="label-text" style="margin-top: 12px;">選擇據點</label>
                 <select id="manual-loc" class="form-select"></select>
             </div>
             <div class="modal-btns">
@@ -416,10 +529,11 @@
     <div id="admin-login-modal" class="modal-overlay">
         <div class="modal-content">
             <h3 style="margin: 0; color: var(--primary-color);">管理員驗證</h3>
+            <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 10px;">請輸入授權密碼以進入控制台</p>
             <input type="password" id="admin-password-input" class="admin-input" placeholder="請輸入密碼" style="text-align:center; margin: 15px 0;">
             <div class="modal-btns">
                 <button class="modal-btn" style="background:#f1f5f9;" onclick="closeAdminLoginModal()">取消</button>
-                <button class="modal-btn" style="background:var(--primary-color); color:white;" onclick="verifyAdminPassword()">登入</button>
+                <button class="modal-btn" style="background:var(--primary-color); color:white;" onclick="verifyAdminPassword()">登入系統</button>
             </div>
         </div>
     </div>
@@ -437,11 +551,11 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, serverTimestamp, deleteDoc, doc, Timestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, serverTimestamp, deleteDoc, doc, Timestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = {
+        const firebaseConfig = (typeof __firebase_config !== 'undefined' && __firebase_config !== "") ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyC1CUSE-tou-H_BxfEGg4mxA30HsGF8DWE",
             authDomain: "origin-cloud-clockin.firebaseapp.com",
             projectId: "origin-cloud-clockin",
@@ -450,19 +564,22 @@
             appId: "1:160594589221:web:29aad0f9cbeb828d7571cc",
             measurementId: "G-EC0ZQZ47E0"
         };
+        const appId = (typeof __app_id !== 'undefined' && __app_id !== "") ? __app_id : 'origin-cloud-clockin';
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // 定義全局版本號
-        const APP_VERSION = "V26.1.30.14";
+        const APP_VERSION = "V26.3.0";
 
         let userProfile = null;
         let userCoords = null;
         let allRecords = []; 
         let officeLocations = []; 
         let pendingDeleteId = null;
+
+        const getPublicDataPath = (collectionName) => collection(db, 'artifacts', appId, 'public', 'data', collectionName);
+        const getPublicDocPath = (collectionName, docId) => doc(db, 'artifacts', appId, 'public', 'data', collectionName, docId);
 
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3; 
@@ -479,14 +596,19 @@
             const historyPage = document.getElementById('history-page');
             const adminPage = document.getElementById('admin-page');
             const mainCard = document.getElementById('main-card');
-            const gpsDisplay = document.getElementById('gps-display');
-            const mainMapBox = document.getElementById('main-map-box');
-            const status = document.getElementById('status');
             clockPage.style.display = 'none'; historyPage.style.display = 'none'; adminPage.style.display = 'none';
             mainCard.classList.remove('admin-active');
-            if (view === 'history') { historyPage.style.display = 'block'; fetchHistory(); } 
-            else if (view === 'admin') { adminPage.style.display = 'block'; mainCard.classList.add('admin-active'); switchAdminTab('records'); } 
-            else { clockPage.style.display = 'block'; if (userCoords) { gpsDisplay.style.display = 'block'; mainMapBox.style.display = 'block'; status.innerText = "定位成功，可開始打卡"; } }
+            
+            if (view === 'history') { 
+                historyPage.style.display = 'block'; 
+                fetchHistory(); 
+            } else if (view === 'admin') { 
+                adminPage.style.display = 'block'; 
+                mainCard.classList.add('admin-active'); 
+                switchAdminTab('records'); 
+            } else { 
+                clockPage.style.display = 'block'; 
+            }
         };
 
         window.switchAdminTab = function(tab) {
@@ -562,7 +684,7 @@
             const newLoc = { id: Date.now().toString(), remark, lat, lng, radius };
             officeLocations.push(newLoc);
             try {
-                await setDoc(doc(db, "tenants/Corin_Beauty/settings", "config"), { locations: officeLocations });
+                await setDoc(getPublicDocPath("settings", "config"), { locations: officeLocations });
                 renderLocationList();
                 document.getElementById('set-remark').value = ""; document.getElementById('search-address').value = "";
                 document.getElementById('set-lat').value = ""; document.getElementById('set-lng').value = "";
@@ -574,7 +696,7 @@
         window.deleteLocation = async function(id) {
             if(!confirm("確定要刪除此據點嗎？")) return;
             officeLocations = officeLocations.filter(l => l.id !== id);
-            await setDoc(doc(db, "tenants/Corin_Beauty/settings", "config"), { locations: officeLocations });
+            await setDoc(getPublicDocPath("settings", "config"), { locations: officeLocations });
             renderLocationList();
         };
 
@@ -603,18 +725,23 @@
             document.getElementById('manual-modal').style.display = 'flex';
         };
         window.closeManualModal = function() { document.getElementById('manual-modal').style.display = 'none'; };
+        
         window.submitManualCheckIn = async function() {
+            if (!auth.currentUser) { alert("尚未登入"); return; }
             const type = document.getElementById('manual-type').value;
             const timeValue = document.getElementById('manual-time').value;
             const locName = document.getElementById('manual-loc').value;
+            const breakMinutes = parseInt(document.getElementById('manual-break').value) || 0;
+            
             if (!timeValue) { alert("請選擇補登時間"); return; }
             try {
                 const manualTimestamp = Timestamp.fromDate(new Date(timeValue));
-                await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
+                await addDoc(getPublicDataPath("checkins"), {
                     userId: userProfile.userId, userName: userProfile.displayName, locationName: locName,
                     lat: userCoords ? userCoords.lat : 0, lng: userCoords ? userCoords.lng : 0,
                     timestamp: manualTimestamp, createdAt: serverTimestamp(), type: type, isManual: true, 
-                    client: APP_VERSION + "-Manual" // 同步版本號
+                    breakMinutes: type === '簽退' ? breakMinutes : 0,
+                    client: APP_VERSION + "-Manual" 
                 });
                 closeManualModal(); alert("補登成功！"); fetchHistory();
             } catch (e) { alert("補登失敗"); }
@@ -625,8 +752,7 @@
         document.getElementById('modal-confirm-btn').onclick = async function() {
             if (!pendingDeleteId) return;
             try {
-                if (!auth.currentUser) await signInAnonymously(auth);
-                await deleteDoc(doc(db, "tenants/Corin_Beauty/checkins", pendingDeleteId));
+                await deleteDoc(getPublicDocPath("checkins", pendingDeleteId));
                 closeDeleteModal(); fetchHistory();
             } catch (e) { alert("註銷失敗"); }
         };
@@ -636,12 +762,27 @@
             const gpsDisplay = document.getElementById('gps-display');
             const mainMapBox = document.getElementById('main-map-box');
             const mainMapIframe = document.getElementById('main-map-iframe');
+            
             try {
-                showView('clock'); await liff.init({ liffId: "2008997688-9iB69K6M" });
+                showView('clock');
+                statusText.innerText = "LINE 初始化中...";
+                
+                await liff.init({ liffId: "2008997688-9iB69K6M" });
                 if (!liff.isLoggedIn()) { liff.login(); return; }
-                userProfile = await liff.getProfile(); await signInAnonymously(auth);
-                const configSnap = await getDoc(doc(db, "tenants/Corin_Beauty/settings", "config"));
+                userProfile = await liff.getProfile();
+
+                statusText.innerText = "雲端驗證中...";
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                statusText.innerText = "讀取環境配置...";
+                const configSnap = await getDoc(getPublicDocPath("settings", "config"));
                 if (configSnap.exists()) officeLocations = configSnap.data().locations || [];
+
+                statusText.innerText = "正在取得 GPS 定位...";
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                     mainMapIframe.src = `https://maps.google.com/maps?q=${userCoords.lat},${userCoords.lng}&hl=zh-TW&z=17&output=embed`;
@@ -650,29 +791,56 @@
                     document.getElementById('loader').style.display = "none";
                     document.getElementById('btn-container').style.display = "flex";
                     statusText.innerText = "定位成功，可開始打卡";
-                }, (err) => { statusText.innerText = "定位失敗，請開啟 GPS"; }, { enableHighAccuracy: true, timeout: 10000 });
-            } catch (err) { statusText.innerText = "連線中斷"; }
+                    statusText.style.color = "var(--text-dim)";
+                }, (err) => { 
+                    statusText.innerText = "定位失敗，請開啟 GPS 或允許權限"; 
+                    statusText.style.color = "var(--error-color)";
+                    document.getElementById('loader').style.display = "none";
+                    document.getElementById('btn-container').style.display = "flex";
+                }, { enableHighAccuracy: true, timeout: 10000 });
+                
+            } catch (err) { 
+                console.error("System Init Error:", err);
+                statusText.innerText = "連線失敗，請確認網路並重開頁面"; 
+                statusText.style.color = "var(--error-color)";
+                document.getElementById('loader').style.display = "none";
+                document.getElementById('nav-history-btn').style.display = "block";
+            }
         }
 
         window.submitCheckIn = async function(type) {
-            if (!userProfile || !userCoords) return;
+            if (!userProfile || !auth.currentUser) { alert("尚未完成驗證"); return; }
+            if (!userCoords) { alert("尚未取得定位，請重新整理頁面"); return; }
+
             let allowClockIn = false; let currentOfficeName = "";
             if (officeLocations.length > 0) {
                 officeLocations.forEach(loc => {
                     if (getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng) <= loc.radius) { allowClockIn = true; currentOfficeName = loc.remark; }
                 });
             } else { allowClockIn = true; currentOfficeName = "未設據點"; }
-            if (!allowClockIn) { document.getElementById('status').innerText = `不在打卡範圍內，無法打卡`; document.getElementById('status').style.color = "var(--error-color)"; return; }
+            
+            if (!allowClockIn) { 
+                document.getElementById('status').innerText = `不在打卡範圍內，無法打卡`; 
+                document.getElementById('status').style.color = "var(--error-color)"; 
+                return; 
+            }
+
+            const breakValue = parseInt(document.getElementById('break-selector').value);
             const statusText = document.getElementById('status');
-            document.getElementById('btn-container').style.display = "none"; document.getElementById('main-map-box').style.display = "none"; document.getElementById('gps-display').style.display = "none";
+            
+            document.getElementById('btn-container').style.display = "none"; 
+            document.getElementById('main-map-box').style.display = "none"; 
+            document.getElementById('gps-display').style.display = "none";
             document.getElementById('loader').style.display = "block";
+            
             try {
                 const now = new Date();
                 const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-                await addDoc(collection(db, "tenants/Corin_Beauty/checkins"), {
+                await addDoc(getPublicDataPath("checkins"), {
                     userId: userProfile.userId, userName: userProfile.displayName, locationName: currentOfficeName,
                     lat: userCoords.lat, lng: userCoords.lng, timestamp: serverTimestamp(), type: type, 
-                    client: APP_VERSION // 同步版本號
+                    breakMinutes: type === '簽退' ? breakValue : 0,
+                    client: APP_VERSION 
                 });
                 document.getElementById('loader').style.display = "none";
                 document.getElementById('success').style.display = "block";
@@ -689,32 +857,66 @@
         };
 
         async function fetchHistory() {
+            if (!auth.currentUser) return;
             const listContainer = document.getElementById('history-list');
             try {
-                const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
+                const querySnapshot = await getDocs(getPublicDataPath("checkins"));
                 let records = [];
-                querySnapshot.forEach((doc) => { const data = doc.data(); if (data.userId === userProfile.userId) records.push({ ...data, id: doc.id }); });
+                querySnapshot.forEach((doc) => { 
+                    const data = doc.data(); 
+                    if (data.userId === userProfile.userId) records.push({ ...data, id: doc.id }); 
+                });
                 renderHistoryList(records, listContainer, false);
-            } catch (e) { listContainer.innerHTML = '<p>讀取失敗</p>'; }
+                allRecords = records; // 暫存用於區間計算
+            } catch (e) { 
+                listContainer.innerHTML = '<p style="color:var(--error-color)">數據讀取權限受阻，請稍後再試</p>'; 
+            }
         }
 
         async function fetchAdminHistory() {
-            const querySnapshot = await getDocs(collection(db, "tenants/Corin_Beauty/checkins"));
-            allRecords = []; let users = new Set();
-            querySnapshot.forEach((doc) => { const data = doc.data(); allRecords.push({ ...data, id: doc.id }); if (data.userName) users.add(data.userName); });
-            const filter = document.getElementById('user-filter');
-            filter.innerHTML = '<option value="all">顯示所有人</option>';
-            Array.from(users).sort().forEach(name => { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; filter.appendChild(opt); });
-            filterAdminHistory();
+            if (!auth.currentUser) return;
+            try {
+                const querySnapshot = await getDocs(getPublicDataPath("checkins"));
+                allRecords = []; let users = new Set();
+                querySnapshot.forEach((doc) => { 
+                    const data = doc.data(); 
+                    allRecords.push({ ...data, id: doc.id }); 
+                    if (data.userName) users.add(data.userName); 
+                });
+                const filter = document.getElementById('user-filter');
+                filter.innerHTML = '<option value="all">顯示所有人</option>';
+                Array.from(users).sort().forEach(name => { 
+                    const opt = document.createElement('option'); opt.value = name; opt.textContent = name; filter.appendChild(opt); 
+                });
+                filterAdminHistory();
+            } catch (e) {
+                document.getElementById('admin-list').innerHTML = '<p>管理權限讀取失敗</p>';
+            }
         }
 
         window.filterAdminHistory = function() {
-            let filtered = document.getElementById('user-filter').value === "all" ? allRecords : allRecords.filter(r => r.userName === document.getElementById('user-filter').value);
+            const userVal = document.getElementById('user-filter').value;
+            const startVal = document.getElementById('filter-date-start').value;
+            const endVal = document.getElementById('filter-date-end').value;
+
+            let filtered = allRecords;
+            if (userVal !== "all") filtered = filtered.filter(r => r.userName === userVal);
+            if (startVal) {
+                const startDate = new Date(startVal);
+                filtered = filtered.filter(r => r.timestamp && r.timestamp.toDate() >= startDate);
+            }
+            if (endVal) {
+                const endDate = new Date(endVal);
+                endDate.setHours(23, 59, 59, 999);
+                filtered = filtered.filter(r => r.timestamp && r.timestamp.toDate() <= endDate);
+            }
             renderHistoryList(filtered, document.getElementById('admin-list'), true);
         };
 
         function renderHistoryList(records, container, isAdmin) {
             let groups = {};
+            let globalTotalMinutes = 0;
+
             records.forEach(rec => {
                 if (!rec.timestamp) return;
                 const d = rec.timestamp.toDate(); 
@@ -724,21 +926,38 @@
                 const groupKey = `${dateKey}_${userKey}_${locKey}`;
 
                 if (!groups[groupKey]) {
-                    groups[groupKey] = { date: dateKey, user: userKey, location: locKey, items: [], totalMinutes: 0, latestTimestamp: 0 };
+                    groups[groupKey] = { date: dateKey, user: userKey, location: locKey, items: [], totalMinutes: 0, rawMinutes: 0, totalBreak: 0, latestTimestamp: 0 };
                 }
                 groups[groupKey].items.push(rec);
                 if (rec.timestamp.seconds > groups[groupKey].latestTimestamp) groups[groupKey].latestTimestamp = rec.timestamp.seconds;
             });
 
             Object.values(groups).forEach(g => {
-                const ins = g.items.filter(i => i.type === '簽到'); 
-                const outs = g.items.filter(i => i.type === '簽退');
+                const ins = g.items.filter(i => i.type === '簽到').sort((a,b) => a.timestamp.seconds - b.timestamp.seconds); 
+                const outs = g.items.filter(i => i.type === '簽退').sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
+                
                 if (ins.length && outs.length) {
-                    const firstIn = Math.min(...ins.map(i => i.timestamp.toDate()));
-                    const lastOut = Math.max(...outs.map(i => i.timestamp.toDate()));
-                    if (lastOut > firstIn) g.totalMinutes = (lastOut - firstIn) / (1000 * 60);
+                    const firstIn = ins[0].timestamp.toDate();
+                    const lastOut = outs[outs.length - 1].timestamp.toDate();
+                    const totalBreak = outs.reduce((sum, curr) => sum + (curr.breakMinutes || 0), 0);
+                    
+                    if (lastOut > firstIn) {
+                        const rawMinutes = (lastOut - firstIn) / (1000 * 60);
+                        g.rawMinutes = rawMinutes;
+                        g.totalBreak = totalBreak;
+                        g.totalMinutes = Math.max(0, rawMinutes - totalBreak);
+                        globalTotalMinutes += g.totalMinutes;
+                    }
                 }
             });
+
+            if (isAdmin) {
+                const summaryBox = document.getElementById('admin-summary-box');
+                summaryBox.style.display = 'flex';
+                const hrs = Math.floor(globalTotalMinutes / 60);
+                const mins = Math.round(globalTotalMinutes % 60);
+                document.getElementById('admin-total-hours').innerText = `${hrs} 小時 ${mins} 分`;
+            }
 
             const sorted = Object.values(groups).sort((a, b) => b.latestTimestamp - a.latestTimestamp);
             if (!sorted.length) { container.innerHTML = '<p style="text-align:center; color:#ccc; margin-top:20px;">尚無紀錄</p>'; return; }
@@ -749,8 +968,12 @@
                     return `
                         <div class="history-item ${rec.type === '簽到' ? 'in' : 'out'}">
                             <div class="item-info">
-                                ${isAdmin ? `<span class="item-user">${rec.userName}</span>` : ''}
-                                <span class="item-type">${rec.type}${rec.isManual ? '<span class="manual-tag">手動補登</span>' : ''}</span>
+                                ${isAdmin ? `<span class="item-user" style="font-weight:900; color:var(--primary-color)">${rec.userName}</span>` : ''}
+                                <span class="item-type">
+                                    ${rec.type}
+                                    ${rec.isManual ? '<span class="manual-tag">手動補登</span>' : ''}
+                                    ${rec.breakMinutes > 0 ? `<span class="break-tag">扣休息 ${rec.breakMinutes}m</span>` : ''}
+                                </span>
                                 <span class="item-date">${g.date}</span>
                                 <div class="item-loc-name">📍 ${rec.locationName || '未知據點'}</div>
                             </div>
@@ -763,12 +986,110 @@
                 
                 const durationHtml = g.totalMinutes > 0 ? `
                     <div class="daily-summary">
-                        <span>🕒 此據點總工時</span>
-                        <span>${Math.floor(g.totalMinutes/60)} 小時 ${Math.round(g.totalMinutes%60)} 分</span>
+                        <div class="summary-row">
+                            <span class="summary-label">🕒 毛工時 (簽到至簽退)</span>
+                            <span>${Math.floor(g.rawMinutes/60)}h ${Math.round(g.rawMinutes%60)}m</span>
+                        </div>
+                        <div class="summary-row" style="color: var(--secondary-color);">
+                            <span class="summary-label">☕ 休息扣除</span>
+                            <span>- ${g.totalBreak} 分鐘</span>
+                        </div>
+                        <div class="summary-row" style="border-top: 1px dashed #eee; padding-top: 5px; margin-top: 3px;">
+                            <span>✨ 實際總淨工時 (${g.location})</span>
+                            <span style="color: var(--primary-color); font-size: 15px;">${Math.floor(g.totalMinutes/60)}h ${Math.round(g.totalMinutes%60)}m</span>
+                        </div>
                     </div>` : '';
-                return itemsHtml + durationHtml;
+                return durationHtml + itemsHtml; 
             }).join('');
         }
+
+        /* 新增：區間計算邏輯 */
+        window.openRangeCalcModal = function() {
+            document.getElementById('range-calc-modal').style.display = 'flex';
+            document.getElementById('report-result').innerHTML = '';
+            // 預設本月區間
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+            document.getElementById('calc-start').value = firstDay;
+            document.getElementById('calc-end').value = lastDay;
+        };
+        window.closeRangeCalcModal = function() { document.getElementById('range-calc-modal').style.display = 'none'; };
+
+        window.generateRangeReport = function() {
+            const startStr = document.getElementById('calc-start').value;
+            const endStr = document.getElementById('calc-end').value;
+            if(!startStr || !endStr) { alert("請選擇日期區間"); return; }
+            
+            const startDate = new Date(startStr);
+            const endDate = new Date(endStr);
+            endDate.setHours(23, 59, 59);
+
+            // 複用 allRecords 進行過濾
+            const filtered = allRecords.filter(r => {
+                const t = r.timestamp.toDate();
+                return t >= startDate && t <= endDate;
+            });
+
+            // 分組計算
+            let dailyMap = {};
+            filtered.forEach(rec => {
+                const dateKey = rec.timestamp.toDate().toLocaleDateString('zh-TW');
+                if (!dailyMap[dateKey]) dailyMap[dateKey] = { items: [], raw: 0, break: 0, net: 0 };
+                dailyMap[dateKey].items.push(rec);
+            });
+
+            let totalNet = 0;
+            let rowsHtml = '';
+            Object.keys(dailyMap).sort((a,b) => new Date(a) - new Date(b)).forEach(date => {
+                const day = dailyMap[date];
+                const ins = day.items.filter(i => i.type === '簽到').sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
+                const outs = day.items.filter(i => i.type === '簽退').sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
+                
+                if (ins.length && outs.length) {
+                    const firstIn = ins[0].timestamp.toDate();
+                    const lastOut = outs[outs.length - 1].timestamp.toDate();
+                    const totalBreak = outs.reduce((sum, curr) => sum + (curr.breakMinutes || 0), 0);
+                    const rawMin = (lastOut - firstIn) / (1000 * 60);
+                    const netMin = Math.max(0, rawMin - totalBreak);
+                    
+                    day.raw = rawMin;
+                    day.break = totalBreak;
+                    day.net = netMin;
+                    totalNet += netMin;
+
+                    rowsHtml += `
+                        <tr>
+                            <td>${date}</td>
+                            <td>${Math.floor(rawMin/60)}h${Math.round(rawMin%60)}m</td>
+                            <td>${totalBreak}m</td>
+                            <td style="font-weight:bold; color:var(--primary-color)">${Math.floor(netMin/60)}h${Math.round(netMin%60)}m</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            const resultContainer = document.getElementById('report-result');
+            const hrs = Math.floor(totalNet/60);
+            const mins = Math.round(totalNet%60);
+
+            resultContainer.innerHTML = `
+                <div style="background: var(--bg-color); padding: 15px; border-radius: 16px; border: 1px solid #edf2f7;">
+                    <div style="font-size: 13px; font-weight: bold; margin-bottom: 10px; color: var(--text-main);">📊 區間結算總結</div>
+                    <div class="summary-row"><span>區間天數：</span><span>${Object.keys(dailyMap).length} 天</span></div>
+                    <div class="summary-row" style="font-size: 16px; margin-top: 5px; color: var(--primary-color);">
+                        <span>總計實際淨工時：</span>
+                        <span>${hrs} 小時 ${mins} 分</span>
+                    </div>
+                    <table class="report-table">
+                        <thead>
+                            <tr><th>日期</th><th>毛工時</th><th>休息</th><th>淨工時</th></tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                </div>
+            `;
+        };
 
         window.onload = initSystem;
     </script>
