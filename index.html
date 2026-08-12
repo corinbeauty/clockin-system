@@ -465,23 +465,21 @@
         let pendingDeleteId = null;
 
         // ==========================================
-        // 定義 LINE Notify 模組 (V1)
+        // 定義 LINE Notify 模組 (V1) - GAS 中繼版
         // ==========================================
         async function sendLineNotify(message) {
-            const token = "fLUiRGFsg4DZggvMyKjB8SXI6mfKqkW+lKETJOS/egS4D8Muluu1LCKIoBOgRHw40bohRs5hjHykLB6KhqVa/FdTFtWB4NDSDSRhwloaIAbg7FjuXzmNO4FVbhSaDJzaKRTvaQHyIeA7+mEGFH6/+QdB04t89/1O/w1cDnyilFU=";
-            const url = "https://notify-api.line.me/api/notify";
+            // 請將下方的 URL 替換為您剛剛複製的 Google Apps Script 網頁應用程式網址
+            const gasUrl = "https://script.google.com/macros/s/您的GAS部署網址/exec"; 
             
             try {
                 const formData = new URLSearchParams();
                 formData.append("message", message);
                 
-                // 注意：純前端直接對 notify-api 進行 POST 呼叫存在瀏覽器 CORS 限制的可能。
-                // 若部署環境(例如純網頁而非 LIFF 內部特定行為)發生 CORS 阻擋，建議透過 Google Apps Script 作為 Proxy。
-                await fetch(url, {
+                // 改為向 GAS 發送 POST 請求，避開 CORS 限制
+                await fetch(gasUrl, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "Authorization": `Bearer ${token}`
+                        "Content-Type": "application/x-www-form-urlencoded"
                     },
                     body: formData
                 });
@@ -489,7 +487,6 @@
                 console.error("LINE Notify 推播失敗:", error);
             }
         }
-
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3; 
             const φ1 = lat1 * Math.PI / 180;
