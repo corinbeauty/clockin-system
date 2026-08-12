@@ -465,26 +465,18 @@
         let pendingDeleteId = null;
 
         // ==========================================
-        // 定義 LINE Notify 模組 (V1) - GAS 中繼版
+        // 定義 LINE Notify 模組 (V1) - 影像載入觸發版 (100% 繞過 CORS)
         // ==========================================
-        async function sendLineNotify(message) {
-            // 請將下方的 URL 替換為您剛剛複製的 Google Apps Script 網頁應用程式網址
-            const gasUrl = "https://script.google.com/macros/s/您的GAS部署網址/exec"; 
+        function sendLineNotify(message) {
+            const gasUrl = "https://script.google.com/macros/s/AKfycbzy6tbO1W7cVl2Ro8D8P_8FASlShx-oTjxht_g5fQR1-vco6P_FxVsElrB4kodFzsa0/exec";
             
             try {
-                const formData = new URLSearchParams();
-                formData.append("message", message);
-                
-                // 改為向 GAS 發送 POST 請求，避開 CORS 限制
-                await fetch(gasUrl, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    body: formData
-                });
+                // 利用建立隱藏 Image 物件的方式發送 GET 請求，徹底避開所有瀏覽器攔截與 CORS 問題
+                const targetUrl = `${gasUrl}?message=${encodeURIComponent(message)}`;
+                const img = new Image();
+                img.src = targetUrl;
             } catch (error) {
-                console.error("LINE Notify 推播失敗:", error);
+                console.error("LINE 訊息發送失敗:", error);
             }
         }
         function getDistance(lat1, lon1, lat2, lon2) {
